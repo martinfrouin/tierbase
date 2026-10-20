@@ -37,7 +37,7 @@ const CHUNK = 1000;
 const readJson = <T>(path: string): T => JSON.parse(readFileSync(join(ROOT, path), "utf8"));
 
 // AniList lists adaptations separately (manga vs light novel vs one-shot, ONE's webcomic vs Murata's One-Punch Man).
-// Readers mean one series, so entries with the same name and origin collapse into the most popular one.
+// Readers mean one series, so entries with the same name and origin collapse into the most popular comic version.
 const mergedInto = new Map<number, number>();
 const catalog = (() => {
   const raw = [...readJson<CatalogEntry[]>("data/cache/anilist.json"), ...readJson<CatalogEntry[]>("data/extra-titles.json")];
@@ -47,11 +47,15 @@ const catalog = (() => {
     groups.set(key, [...(groups.get(key) ?? []), t]);
   }
   return [...groups.values()].map((group) => {
-    const [main, ...others] = group.sort((a, b) => b.popularity - a.popularity);
+    const [main, ...others] = group.sort(
+      (a, b) => Number(a.format === "NOVEL") - Number(b.format === "NOVEL") || b.popularity - a.popularity,
+    );
     for (const o of others) mergedInto.set(o.id, main.id);
     const names = others.flatMap((o) => [o.name, o.romaji, ...o.synonyms]).filter((n): n is string => !!n);
     return { ...main, synonyms: [...new Set([...main.synonyms, ...names])] };
-  });
+  })
+    // Only manhwa, manga and manhua: novels and Western comics are too rare in these threads to rank fairly
+    .filter((t) => kind(t) !== null);
 })();
 const exclusions = readJson<{ comments: Record<string, string> }>("data/exclusions.json");
 const wordList = (path: string) => new Set(readFileSync(join(ROOT, path), "utf8").split("\n").filter(Boolean));
@@ -75,9 +79,9 @@ function displayName(t: CatalogEntry): string {
   return (t.synonyms.find(isEnglish) ?? t.name).trim();
 }
 
-function kind(t: CatalogEntry): string {
-  if (t.format === "NOVEL") return "novel";
-  return { KR: "manhwa", JP: "manga", CN: "manhua", TW: "manhua" }[t.origin] ?? "comic";
+function kind(t: CatalogEntry): string | null {
+  if (t.format === "NOVEL") return null;
+  return { KR: "manhwa", JP: "manga", CN: "manhua", TW: "manhua" }[t.origin] ?? null;
 }
 
 function slugify(name: string): string {
@@ -166,6 +170,8 @@ await sql.begin(async (tx) => {
     await tx`DELETE FROM ratings WHERE title_id IN ${tx(from)}`;
     await tx`DELETE FROM titles WHERE id IN ${tx(from)}`;
   }
+  // Titles that left the catalog (novels, Western comics) go, unless a visitor has them in a tier list
+  await tx`DELETE FROM titles WHERE id <> ALL(${catalog.map((t) => t.id)}::int[]) AND id NOT IN (SELECT title_id FROM ratings)`;
   for (let i = 0; i < threadRows.length; i += CHUNK) await tx`INSERT INTO threads ${tx(threadRows.slice(i, i + CHUNK))}`;
   for (let i = 0; i < mentionRows.length; i += CHUNK) await tx`INSERT INTO mentions ${tx(mentionRows.slice(i, i + CHUNK))}`;
 });

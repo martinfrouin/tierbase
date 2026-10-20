@@ -10,7 +10,18 @@ const STATE_FILE = join(ROOT, "data/cache/state.json");
 const THREADS_DIR = join(ROOT, "data/cache/threads");
 
 // Sources per kind, so manga, manhwa and manhua each get comparable coverage
-const SUBREDDITS = ["manhwa", "manhwarecommendations", "webtoons", "manga", "MangaRecommendations", "manhua"];
+// Manhwa subreddits are far busier: the manga side gets the smaller demographic communities too
+const SUBREDDITS = [
+  "manhwa",
+  "manhwarecommendations",
+  "webtoons",
+  "manga",
+  "MangaRecommendations",
+  "Seinen",
+  "shoujo",
+  "josei",
+  "manhua",
+];
 const DAY = 86400;
 // Each run extends the history further back by this much, until MAX_HISTORY_DAYS
 const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];

@@ -21,7 +21,7 @@ export function isRecommendationThread(post: { title: string; link_flair_text?: 
   if (post.link_flair_text && SKIPPED_FLAIRS.test(post.link_flair_text)) return false;
   const tag = post.title.match(/^\s*\[([^\]]*)\]/)?.[1].trim().toLowerCase();
   // "[Some Title] ..." posts are about one series and would skew its count
-  if (tag !== undefined && !GENERIC_TAGS.has(tag)) return false;
+  if (tag !== undefined && !GENERIC_TAGS.has(tag) && !/recommend|request|suggest/.test(tag)) return false;
   if (OFF_TOPIC.test(post.title)) return false;
   return (!!post.link_flair_text && ASKING_FLAIRS.test(post.link_flair_text)) || ASKING_PATTERNS.some((p) => p.test(post.title));
 }

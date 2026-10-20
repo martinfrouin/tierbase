@@ -83,8 +83,9 @@ function toCard(row: Record<string, unknown>): TitleCard {
   };
 }
 
-// The overall ranking compares every title to the most cited one; a kind filter compares titles to the top of their kind,
-// so the best manga still leads the manga ranking even though manhwa threads are far more numerous
+// Manhwa threads far outnumber manga and manhua ones. Each title is measured against a reference halfway (geometric mean)
+// between the top of its kind and the overall top: kinds get a fair chance without a niche leader outranking blockbusters.
+// With a kind filter both are the same, so the best manga leads the manga ranking.
 export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
   "use cache";
   cacheLife("minutes");
@@ -98,16 +99,20 @@ export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
     SELECT t.id, t.slug, t.name, t.kind, t.cover,
            COALESCE(m.n, 0) AS mentions, COALESCE(r.votes, 0) AS votes, COALESCE(r.total, 0) AS total
     FROM titles t LEFT JOIN m ON m.title_id = t.id LEFT JOIN r ON r.title_id = t.id
-    WHERE (m.n > 0 OR r.votes > 0) AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
+    WHERE (m.n > 0 OR r.votes > 0) AND t.kind IN ${sql(KINDS.map((k) => k.value))}
+      AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
   `;
 
   // Floored, so a kind with a handful of mentions can't hand out 5/5 priors
-  const reference = Math.max(MIN_REFERENCE_MENTIONS, ...rows.map((r) => Number(r.mentions)));
+  const top = Math.max(MIN_REFERENCE_MENTIONS, ...rows.map((r) => Number(r.mentions)));
+  const kindTop = new Map<string, number>();
+  for (const r of rows) kindTop.set(String(r.kind), Math.max(kindTop.get(String(r.kind)) ?? MIN_REFERENCE_MENTIONS, Number(r.mentions)));
   const scored = rows.map((row) => {
     const mentions = Number(row.mentions);
     const votes = Number(row.votes);
-    // The most cited title starts at 5/5, a single mention at ~3/5
-    const prior = 3 + (2 * Math.log1p(mentions)) / Math.log1p(reference);
+    const reference = Math.sqrt(kindTop.get(String(row.kind))! * top);
+    // A title at the reference starts at 5/5, a single mention at ~3/5
+    const prior = 3 + (2 * Math.min(1, Math.log1p(mentions) / Math.log1p(reference)));
     const weight = Math.min(MAX_PRIOR_WEIGHT, Math.max(MIN_PRIOR_WEIGHT, mentions / 2));
     const score = (weight * prior + Number(row.total)) / (weight + votes);
     const avgTier = votes ? TIERS[5 - Math.round(Number(row.total) / votes)] : null;
