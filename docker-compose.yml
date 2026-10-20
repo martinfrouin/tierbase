@@ -1,17 +1,19 @@
+name: tierbase
+
 services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: panelrank
-      POSTGRES_PASSWORD: panelrank
-      POSTGRES_DB: panelrank
+      POSTGRES_USER: tierbase
+      POSTGRES_PASSWORD: tierbase
+      POSTGRES_DB: tierbase
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U panelrank"]
+      test: ["CMD-SHELL", "pg_isready -U tierbase"]
       interval: 2s
       retries: 15
 
