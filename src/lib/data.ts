@@ -66,7 +66,7 @@ export interface Recommendation {
 // the more virtual votes (half a vote per mention, clamped), so a lone tier list vote can't outweigh 40 recommendations.
 const MIN_PRIOR_WEIGHT = 3;
 const MAX_PRIOR_WEIGHT = 25;
-const MIN_KIND_REFERENCE = 20;
+const MIN_REFERENCE_MENTIONS = 20;
 // Damps similarities built on very few shared readers
 const SIMILARITY_SHRINK = 2;
 
@@ -80,7 +80,9 @@ function toCard(row: Record<string, unknown>): TitleCard {
   };
 }
 
-export async function getRanking(): Promise<RankedTitle[]> {
+// The overall ranking compares every title to the most cited one; a kind filter compares titles to the top of their kind,
+// so the best manga still leads the manga ranking even though manhwa threads are far more numerous
+export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
   "use cache";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
@@ -93,23 +95,16 @@ export async function getRanking(): Promise<RankedTitle[]> {
     SELECT t.id, t.slug, t.name, t.kind, t.cover,
            COALESCE(m.n, 0) AS mentions, COALESCE(r.votes, 0) AS votes, COALESCE(r.total, 0) AS total
     FROM titles t LEFT JOIN m ON m.title_id = t.id LEFT JOIN r ON r.title_id = t.id
-    WHERE m.n > 0 OR r.votes > 0
+    WHERE (m.n > 0 OR r.votes > 0) AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
   `;
 
-  // Priors are relative to the same kind: subreddits differ in size, and manhwa threads shouldn't bury manga
-  // (floored, so a kind with a handful of mentions can't hand out 5/5 priors)
-  const maxMentions = new Map<string, number>();
-  for (const r of rows) {
-    maxMentions.set(
-      String(r.kind),
-      Math.max(maxMentions.get(String(r.kind)) ?? MIN_KIND_REFERENCE, Number(r.mentions)),
-    );
-  }
+  // Floored, so a kind with a handful of mentions can't hand out 5/5 priors
+  const reference = Math.max(MIN_REFERENCE_MENTIONS, ...rows.map((r) => Number(r.mentions)));
   const scored = rows.map((row) => {
     const mentions = Number(row.mentions);
     const votes = Number(row.votes);
-    // Most-cited title of its kind starts at 5/5, a single mention at ~3/5
-    const prior = 3 + (2 * Math.log1p(mentions)) / Math.log1p(maxMentions.get(String(row.kind))!);
+    // The most cited title starts at 5/5, a single mention at ~3/5
+    const prior = 3 + (2 * Math.log1p(mentions)) / Math.log1p(reference);
     const weight = Math.min(MAX_PRIOR_WEIGHT, Math.max(MIN_PRIOR_WEIGHT, mentions / 2));
     const score = (weight * prior + Number(row.total)) / (weight + votes);
     return { ...toCard(row), mentions, votes, score, rank: 0 };
