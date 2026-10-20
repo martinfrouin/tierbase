@@ -802,3 +802,25 @@ a.chip {
     padding: 5px 10px;
   }
 }
+
+.legal {
+  max-width: 680px;
+  line-height: 1.6;
+}
+
+.legal h2 {
+  font-size: 18px;
+  margin: 28px 0 8px;
+}
+
+.legal ul {
+  padding-left: 20px;
+}
+
+.legal li {
+  margin-bottom: 8px;
+}
+
+.footer-links a {
+  color: var(--muted);
+}

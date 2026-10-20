@@ -64,6 +64,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               buy me a coffee ☕
             </a>
           </p>
+          <p className="footer-links">
+            <Link href="/legal">Legal notice</Link> · <Link href="/privacy">Privacy</Link> · Data from{" "}
+            <a href="https://anilist.co" target="_blank" rel="noreferrer">
+              AniList
+            </a>{" "}
+            and Reddit
+          </p>
         </footer>
       </body>
     </html>
