@@ -785,3 +785,32 @@ a.chip {
 .because summary {
   cursor: pointer;
 }
+
+.site-header nav a {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .site-header {
+    gap: 12px;
+  }
+
+  .brand > span {
+    display: none;
+  }
+
+  .site-header nav {
+    gap: 12px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .site-header nav {
+    gap: 10px;
+  }
+
+  .site-header nav a.nav-cta {
+    padding: 5px 10px;
+  }
+}
