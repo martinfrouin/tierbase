@@ -155,6 +155,10 @@ main {
   vertical-align: middle;
 }
 
+.title-header .tag {
+  margin-left: 0;
+}
+
 .ranking {
   list-style: none;
   margin: 0;

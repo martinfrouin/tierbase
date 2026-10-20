@@ -65,11 +65,12 @@ export class TitleMatcher {
     const knownTokens = new Set(byPopularity.flatMap((t) => namesOf(t).flatMap((n) => normalize(n).split(" "))));
 
     byPopularity.forEach((title, rank) => {
-      const mainNames = new Set(variants(title.name, words));
+      const mainNames = new Set([title.name, title.romaji].filter((n): n is string => !!n).flatMap((n) => variants(n, words)));
       for (const alias of new Set(namesOf(title).flatMap((n) => variants(n, words)))) {
         if (alias.length < 3 || blocked.has(alias) || this.aliases.has(alias)) continue;
-        // One-word synonyms like "Name" (Ming) or "Awesome" (Ooh La La) are ordinary chat words
-        if (!mainNames.has(alias) && !alias.includes(" ") && words.common.has(alias)) continue;
+        // One-word synonyms like "Name" (Ming) or "Strongest" (Zui Qiang Ren Ge) are ordinary chat words
+        const core = alias.replace(/^the /, "");
+        if (!mainNames.has(alias) && !core.includes(" ") && (words.common.has(core) || rank > ACRONYM_MAX_RANK)) continue;
         this.aliases.set(alias, { id: title.id, mode: this.modeFor(alias, rank, words) });
       }
 
