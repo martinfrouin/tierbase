@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
-import { getLibrary, getUserByShareId, recommend, tasteMatch, TIERS, type LibraryEntry } from "@/lib/data";
+import { getLibrary, getUserByShareId, recommend, tasteMatch, TIER_WEIGHT, TIERS, type LibraryEntry } from "@/lib/data";
 import { KINDS, parseKind } from "@/lib/kinds";
 import { currentUserId } from "@/lib/user";
 
@@ -12,12 +12,20 @@ const DEFAULT_NAME = "A reader's tier list";
 export async function generateMetadata({ params }: PageProps<"/tierlist/[shareId]">): Promise<Metadata> {
   const owner = await getUserByShareId((await params).shareId);
   const name = owner?.listName ?? DEFAULT_NAME;
-  return { title: name, openGraph: { title: name, description: "See how this reader ranks their manga, manhwa and manhua." } };
+  return {
+    title: name,
+    openGraph: { title: name, description: "See how this reader ranks their manga, manhwa and manhua." },
+  };
 }
 
 async function Match({ list, ownerId }: { list: LibraryEntry[]; ownerId: string }) {
   const viewerId = await currentUserId();
-  if (viewerId === ownerId) return <p className="match">This is your list. <Link href="/tierlist">Edit it →</Link></p>;
+  if (viewerId === ownerId)
+    return (
+      <p className="match">
+        This is your list. <Link href="/tierlist">Edit it →</Link>
+      </p>
+    );
 
   const mine = viewerId ? await getLibrary(viewerId) : [];
   const result = tasteMatch(list, mine);
@@ -53,7 +61,7 @@ async function SharedList({
   const liked = list.filter((e) => e.tier === "S" || e.tier === "A");
   const recs = (
     await recommend(
-      liked.map((e) => ({ titleId: e.title.id, weight: e.tier === "S" ? 1 : 0.7 })),
+      liked.map((e) => ({ titleId: e.title.id, weight: TIER_WEIGHT[e.tier!] ?? 0 })),
       new Set(list.map((e) => e.title.id)),
       { limit: 40, skipBasket: `u:${owner.id}` },
     )
@@ -77,7 +85,11 @@ async function SharedList({
             All
           </Link>
           {kindsInUse.map((k) => (
-            <Link key={k.value} className={kind === k.value ? "chip active" : "chip"} href={`/tierlist/${shareId}?kind=${k.value}`}>
+            <Link
+              key={k.value}
+              className={kind === k.value ? "chip active" : "chip"}
+              href={`/tierlist/${shareId}?kind=${k.value}`}
+            >
               {k.label}
             </Link>
           ))}

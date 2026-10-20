@@ -22,8 +22,17 @@ Title detection (`scripts/lib/matcher.ts`) matches comment text against AniList 
 ## How ranking and recommendations work
 
 - **Ranking**: Bayesian average, shown out of 100. Each title starts at a prior derived from its Reddit mentions relative to its own kind (most cited manhwa and most cited manga both start at 100, one mention ≈ 50), worth half a vote per mention (3 to 25 virtual votes); tier list votes (S=5 … D=1) progressively take over.
-- **Recommendations**: item-to-item collaborative filtering. A "basket" is one Reddit comment or one user's S/A titles; two titles are similar when the same baskets contain them, normalized by popularity so blockbusters don't dominate.
+- **Recommendations**: item-to-item collaborative filtering. A "basket" is everything one Reddit user cited (so a list pasted in ten threads counts once) or one site user's S/A titles; two titles are similar when the same baskets contain them, pairs from long lists weigh less than pairs from short comments, and scores are normalized by popularity so blockbusters don't dominate.
 
 ## Database
 
-Postgres, in Docker locally (`docker-compose.yml`) and in production (`compose.prod.yml`, with the app, a sync worker and Caddy). Schema in `db/schema.sql`.
+Postgres, in Docker locally (`docker-compose.yml`). Schema in `db/schema.sql`.
+
+## Deployment
+
+- **Site**: Vercel, deployed on every push to `main` by the Git integration. `DATABASE_URL` points to the VM with `?sslmode=require`.
+- **Database and sync worker**: a VM running `compose.prod.yml` (Postgres with TLS required for outside connections, plus the daily sync worker). `.github/workflows/deploy-vm.yml` rsyncs the worker files and restarts the stack when they change. The VM keeps `.env` (`POSTGRES_PASSWORD`), `certs/` (self-signed TLS certificate) and `data/cache/` between deploys.
+
+## Support
+
+If TierBase found you a good read, [buy me a coffee ☕](https://github.com/sponsors/martinfrouin).

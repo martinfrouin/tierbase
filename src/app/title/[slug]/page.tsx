@@ -22,6 +22,7 @@ async function TitleContent({ params }: { params: Promise<{ slug: string }> }) {
   const title = await getTitle((await params).slug);
   if (!title) notFound();
   const [similar, quotes] = await Promise.all([similarTitles(title.id), getQuotes(title.id)]);
+  const originalTitles = [title.romaji, title.native].filter((n): n is string => !!n && n !== title.name);
 
   return (
     <article className="title-page">
@@ -29,7 +30,7 @@ async function TitleContent({ params }: { params: Promise<{ slug: string }> }) {
         <Cover src={title.cover} size="large" />
         <div>
           <h1>{title.name}</h1>
-          {title.romaji && title.romaji !== title.name && <p className="muted">{title.romaji}</p>}
+          {originalTitles.length > 0 && <p className="muted">Original title: {originalTitles.join(" · ")}</p>}
           <p className="muted">
             <span className="tag">{KINDS.find((k) => k.value === title.kind)?.label}</span>{" "}
             {title.rank > 0 && (

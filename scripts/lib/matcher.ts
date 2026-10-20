@@ -37,10 +37,12 @@ export function normalize(text: string): string {
     .trim();
 }
 
-function variants(name: string): string[] {
+function variants(name: string, words: WordLists): string[] {
   const out = [normalize(name)];
-  const subtitle = name.split(/\s*(?::|\s-\s|\()\s*/)[0];
-  if (subtitle !== name) out.push(normalize(subtitle));
+  const subtitle = normalize(name.split(/\s*(?::|\s-\s|\()\s*/)[0]);
+  // A one-word prefix like "Fantasy: I, Invincibility…" is a genre label, not the title
+  const generic = !subtitle.includes(" ") && (words.dictionary.has(subtitle) || words.common.has(subtitle));
+  if (subtitle !== out[0] && !generic) out.push(subtitle);
   for (const v of [...out]) if (v.startsWith("the ")) out.push(v.slice(4));
   return out;
 }
@@ -63,8 +65,11 @@ export class TitleMatcher {
     const knownTokens = new Set(byPopularity.flatMap((t) => namesOf(t).flatMap((n) => normalize(n).split(" "))));
 
     byPopularity.forEach((title, rank) => {
-      for (const alias of new Set(namesOf(title).flatMap(variants))) {
+      const mainNames = new Set(variants(title.name, words));
+      for (const alias of new Set(namesOf(title).flatMap((n) => variants(n, words)))) {
         if (alias.length < 3 || blocked.has(alias) || this.aliases.has(alias)) continue;
+        // One-word synonyms like "Name" (Ming) or "Awesome" (Ooh La La) are ordinary chat words
+        if (!mainNames.has(alias) && !alias.includes(" ") && words.common.has(alias)) continue;
         this.aliases.set(alias, { id: title.id, mode: this.modeFor(alias, rank, words) });
       }
 
@@ -72,7 +77,7 @@ export class TitleMatcher {
         const tokens = normalize(title.name).split(" ");
         const acronym = tokens.map((w) => w[0]).join("");
         // Skip acronyms that collide with real words or with words used in other titles ("hua", "god")
-        const collides = knownTokens.has(acronym) || words.dictionary.has(acronym) || this.aliases.has(acronym);
+        const collides = knownTokens.has(acronym) || words.dictionary.has(acronym) || words.common.has(acronym) || this.aliases.has(acronym);
         if (tokens.length >= 3 && !collides && !blocked.has(acronym)) {
           this.aliases.set(acronym, { id: title.id, mode: "anywhere" });
         }

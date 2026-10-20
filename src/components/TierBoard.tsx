@@ -166,7 +166,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
             </h2>
             <div className={selected ? "pool want target" : "pool want"} {...dropProps(WANT)}>
               {want.length === 0 ? (
-                <span className="muted">Titles you mark &quot;Want to read&quot; land here, ready to rank once you&apos;ve read them.</span>
+                <span className="muted pool-empty">Titles you mark &quot;Want to read&quot; land here, ready to rank once you&apos;ve read them.</span>
               ) : (
                 shown(want).map(card)
               )}

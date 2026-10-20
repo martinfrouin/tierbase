@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS titles (
   url TEXT NOT NULL DEFAULT '',
   popularity INTEGER NOT NULL DEFAULT 0
 );
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS native TEXT;
 CREATE INDEX IF NOT EXISTS titles_search ON titles USING gin (search gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS threads (
@@ -56,8 +57,9 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 CREATE INDEX IF NOT EXISTS ratings_title ON ratings(title_id);
 
--- A "basket" is a set of titles one reader likes: a Reddit comment, or a site user's S/A titles
+-- A "basket" is a set of titles one reader likes: everything a Reddit user cited, or a site user's S/A titles.
+-- Grouping by Reddit author keeps a list pasted in many threads from counting many times.
 CREATE OR REPLACE VIEW baskets AS
-  SELECT 'c:' || comment_id AS basket, title_id FROM mentions
+  SELECT DISTINCT 'r:' || author AS basket, title_id FROM mentions
   UNION ALL
   SELECT 'u:' || user_id AS basket, title_id FROM ratings WHERE tier IN ('S', 'A');

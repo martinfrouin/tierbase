@@ -9,6 +9,7 @@ interface CatalogEntry {
   id: number;
   name: string;
   romaji: string | null;
+  native?: string | null;
   synonyms: string[];
   origin: string;
   format: string;
@@ -54,11 +55,25 @@ const catalog = (() => {
 })();
 const exclusions = readJson<{ comments: Record<string, string> }>("data/exclusions.json");
 const wordList = (path: string) => new Set(readFileSync(join(ROOT, path), "utf8").split("\n").filter(Boolean));
-const matcher = new TitleMatcher(
-  catalog,
-  { common: wordList("data/common-words.txt"), dictionary: wordList("data/dictionary.txt") },
-  readJson("data/aliases.json"),
-);
+const words = { common: wordList("data/common-words.txt"), dictionary: wordList("data/dictionary.txt") };
+const matcher = new TitleMatcher(catalog, words, readJson("data/aliases.json"));
+
+// Many manhwa and manhua have no official English title on AniList: fall back to a synonym written in plain English.
+// Japanese titles keep their romaji, which is what readers use ("Jujutsu Kaisen", not "Sorcery Fight").
+function isEnglish(name: string): boolean {
+  if (!/^[\x20-\x7E’]+$/.test(name)) return false;
+  const tokens = normalize(name).split(" ").filter(Boolean);
+  return (
+    tokens.length > 0 &&
+    tokens.every((w) => words.dictionary.has(w) || words.common.has(w)) &&
+    tokens.some((w) => w.length >= 4 && words.dictionary.has(w))
+  );
+}
+
+function displayName(t: CatalogEntry): string {
+  if (t.name !== t.romaji || t.origin === "JP" || isEnglish(t.name)) return t.name;
+  return (t.synonyms.find(isEnglish) ?? t.name).trim();
+}
 
 function kind(t: CatalogEntry): string {
   if (t.format === "NOVEL") return "novel";
@@ -79,15 +94,16 @@ const titleRows = [...catalog]
   .map((t) => {
     let slug = existingSlugs.get(t.id);
     if (!slug) {
-      slug = slugify(t.name) || String(t.id);
+      slug = slugify(displayName(t)) || String(t.id);
       if (usedSlugs.has(slug)) slug = `${slug}-${t.id}`;
       usedSlugs.add(slug);
     }
     return {
       id: t.id,
       slug,
-      name: t.name,
+      name: displayName(t),
       romaji: t.romaji,
+      native: t.native ?? null,
       search: [t.name, t.romaji, ...t.synonyms].filter((n): n is string => !!n && LATIN.test(n)).map(normalize).join(" | "),
       kind: kind(t),
       origin: t.origin,
@@ -102,7 +118,7 @@ const titleRows = [...catalog]
 for (let i = 0; i < titleRows.length; i += CHUNK) {
   await sql`
     INSERT INTO titles ${sql(titleRows.slice(i, i + CHUNK))}
-    ON CONFLICT (id) DO UPDATE SET name = excluded.name, romaji = excluded.romaji,
+    ON CONFLICT (id) DO UPDATE SET name = excluded.name, romaji = excluded.romaji, native = excluded.native,
       search = excluded.search, kind = excluded.kind, origin = excluded.origin, status = excluded.status,
       genres = excluded.genres, cover = excluded.cover, url = excluded.url, popularity = excluded.popularity
   `;

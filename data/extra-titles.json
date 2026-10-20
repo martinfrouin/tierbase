@@ -3,13 +3,40 @@
     "id": 900000001,
     "name": "The Beginning After the End",
     "romaji": null,
-    "synonyms": ["TBATE"],
+    "synonyms": [
+      "TBATE"
+    ],
     "origin": "KR",
     "format": "MANGA",
     "status": "RELEASING",
-    "genres": ["Action", "Adventure", "Fantasy"],
+    "genres": [
+      "Action",
+      "Adventure",
+      "Fantasy"
+    ],
     "popularity": 60000,
     "url": "https://tapas.io/series/tbate-comic",
     "cover": "/covers/the-beginning-after-the-end.jpg"
+  },
+  {
+    "id": 900000002,
+    "name": "Dragon Ball Z",
+    "romaji": null,
+    "synonyms": [
+      "DBZ",
+      "Dragonball Z"
+    ],
+    "origin": "JP",
+    "format": "MANGA",
+    "status": "FINISHED",
+    "genres": [
+      "Action",
+      "Adventure",
+      "Comedy",
+      "Fantasy"
+    ],
+    "popularity": 40000,
+    "url": "https://www.viz.com/dragon-ball-z",
+    "cover": "/covers/dragon-ball-z.jpg"
   }
 ]

@@ -5,7 +5,10 @@ import { sql } from "@/lib/db";
 import { ensureUserId } from "@/lib/user";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 
-export async function setEntry(titleId: number, entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> } | null) {
+export async function setEntry(
+  titleId: number,
+  entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> } | null,
+) {
   const userId = await ensureUserId();
   if (entry === null) {
     await sql`DELETE FROM ratings WHERE user_id = ${userId} AND title_id = ${titleId}`;
@@ -24,7 +27,17 @@ export async function setEntry(titleId: number, entry: { tier: Tier } | { state:
 }
 
 export async function saveFavorites(titleIds: number[]) {
-  for (const id of titleIds.slice(0, 20)) await setEntry(id, { tier: "S" });
+  const userId = await ensureUserId();
+  for (const id of titleIds.slice(0, 20)) {
+    // Never overrides a tier the reader already chose
+    await sql`
+      INSERT INTO ratings (user_id, title_id, tier, state) VALUES (${userId}, ${id}, 'S', 'rated')
+      ON CONFLICT (user_id, title_id) DO UPDATE SET tier = 'S', state = 'rated', updated_at = now() WHERE ratings.tier IS NULL
+    `;
+  }
+  updateTag(RATINGS_TAG);
+  revalidatePath("/for-you");
+  revalidatePath("/tierlist");
 }
 
 export async function search(query: string): Promise<TitleCard[]> {

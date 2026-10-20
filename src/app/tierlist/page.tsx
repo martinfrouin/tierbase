@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { Suspense } from "react";
 import ListName from "@/components/ListName";
 import TierBoard from "@/components/TierBoard";
@@ -21,7 +22,10 @@ async function MyBoard() {
 
   const share = userId ? await getShareInfo(userId) : null;
   const host = (await headers()).get("host");
-  const shareUrl = share && host ? `${host.startsWith("localhost") ? "http" : "https"}://${host}/tierlist/${share.shareId}` : undefined;
+  const shareUrl =
+    share && host
+      ? `${host.startsWith("localhost") ? "http" : "https"}://${host}/tierlist/${share.shareId}`
+      : undefined;
 
   return (
     <>
@@ -37,8 +41,9 @@ export default function TierListPage() {
       <section className="hero">
         <h1>My tier list</h1>
         <p className="muted">
-          Every title you place here improves your recommendations and moves the global ranking. Share it or paste it on
-          Reddit.
+          This is what your recommendations are built on: the more titles you rank, the better they get. Drag in what
+          you&apos;ve read, then <Link href="/for-you">see your recommendations</Link>. You can also share it or paste
+          it on Reddit.
         </p>
       </section>
       <Suspense fallback={<p className="muted">Loading your tier list…</p>}>

@@ -14,7 +14,7 @@ const query = (withCountry: boolean) => `query ($page: Int${withCountry ? ", $co
     media(type: MANGA, sort: POPULARITY_DESC${withCountry ? ", countryOfOrigin: $country" : ""}) {
       id
       isAdult
-      title { romaji english }
+      title { romaji english native }
       synonyms
       countryOfOrigin
       format
@@ -30,7 +30,7 @@ const query = (withCountry: boolean) => `query ($page: Int${withCountry ? ", $co
 interface Media {
   id: number;
   isAdult: boolean;
-  title: { romaji: string | null; english: string | null };
+  title: { romaji: string | null; english: string | null; native: string | null };
   synonyms: string[];
   countryOfOrigin: string;
   format: string;
@@ -60,6 +60,7 @@ for (const country of COUNTRIES) {
         id: m.id,
         name: m.title.english ?? m.title.romaji,
         romaji: m.title.romaji,
+        native: m.title.native,
         synonyms: m.synonyms,
         origin: m.countryOfOrigin,
         format: m.format,

@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { setEntry } from "@/app/actions";
 import type { LibraryState, Tier } from "@/lib/data";
 
-type Choice = { label: string; entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> } };
+type Choice = {
+  label: string;
+  entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> };
+};
 
 const CHOICES: Choice[] = [
   { label: "Loved it", entry: { tier: "S" } },
@@ -35,17 +39,24 @@ export default function RateButtons({ titleId, current }: Props) {
     });
 
   return (
-    <div className={pending ? "rate-buttons pending" : "rate-buttons"}>
-      {CHOICES.map((choice) => (
-        <button
-          key={choice.label}
-          className={isCurrent(choice) ? "chip active" : "chip"}
-          disabled={pending}
-          onClick={() => choose(choice)}
-        >
-          {choice.label}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className={pending ? "rate-buttons pending" : "rate-buttons"}>
+        {CHOICES.map((choice) => (
+          <button
+            key={choice.label}
+            className={isCurrent(choice) ? "chip active" : "chip"}
+            disabled={pending}
+            onClick={() => choose(choice)}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+      {current?.tier && (
+        <Link href="/tierlist" className="rate-note">
+          Saved in your tier list as {current.tier}. Rank more to sharpen your recommendations →
+        </Link>
+      )}
+    </>
   );
 }

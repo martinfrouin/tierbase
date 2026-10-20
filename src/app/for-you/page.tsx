@@ -3,10 +3,29 @@ import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
 import RateButtons from "@/components/RateButtons";
-import { getLibrary, personalRecommendations } from "@/lib/data";
+import TierListNudge from "@/components/TierListNudge";
+import { getLibrary, personalRecommendations, type TitleCard } from "@/lib/data";
 import { currentUserId } from "@/lib/user";
 
 export const metadata: Metadata = { title: "For you" };
+
+const SHOWN_SOURCES = 3;
+
+function Because({ titles }: { titles: TitleCard[] }) {
+  const names = titles.map((t) => t.name);
+  if (names.length <= SHOWN_SOURCES) {
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+    return <p className="muted">Because you liked {list}</p>;
+  }
+  return (
+    <details className="because muted">
+      <summary>
+        Because you liked {names.slice(0, SHOWN_SOURCES).join(", ")} + {names.length - SHOWN_SOURCES} more
+      </summary>
+      {names.slice(SHOWN_SOURCES).join(", ")}
+    </details>
+  );
+}
 
 async function Recommendations() {
   const userId = await currentUserId();
@@ -16,7 +35,8 @@ async function Recommendations() {
   if (liked.length === 0) {
     return (
       <p className="empty">
-        Tell us what you loved first. <Link href="/">Pick a few favorites →</Link>
+        Tell us what you loved first. <Link href="/">Pick a few favorites</Link> or{" "}
+        <Link href="/tierlist">start your tier list →</Link>
       </p>
     );
   }
@@ -24,9 +44,9 @@ async function Recommendations() {
   const recs = await personalRecommendations(userId!);
   return (
     <>
+      <TierListNudge ranked={library.filter((e) => e.tier).length} />
       <p className="muted">
-        Based on {liked.length} title{liked.length > 1 ? "s" : ""} you loved. Rate what you&apos;ve read to sharpen
-        these. <Link href="/">Add favorites</Link> · <Link href="/tierlist">Your tier list</Link>
+        Based on {liked.length} title{liked.length > 1 ? "s" : ""} you loved.
       </p>
       {recs.length === 0 ? (
         <p className="empty">Not enough readers share your picks yet. Try adding a few more popular favorites.</p>
@@ -41,7 +61,11 @@ async function Recommendations() {
                 <Link href={`/title/${r.title.slug}`} className="rec-name">
                   {r.title.name}
                 </Link>
-                <p className="muted">Because you liked {r.because.map((b) => b.name).join(" and ")}</p>
+                <p className="rec-match">
+                  <strong>{r.match}% match</strong> · liked by {r.readers} reader{r.readers > 1 ? "s" : ""} who share
+                  your taste
+                </p>
+                <Because titles={r.because} />
                 <RateButtons titleId={r.title.id} />
               </div>
             </li>

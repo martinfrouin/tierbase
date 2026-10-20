@@ -1,5 +1,6 @@
 {
   "add": {
+    "900000002": ["dragon ball z", "dragonball z", "dbz"],
     "140407": ["ged", "tged", "great estate developer", "greatest real estate developer", "great real estate developer", "estate developer", "estate dev"],
     "85143": ["tog"],
     "119257": ["orv", "omniscient readers viewpoint", "omniscient reader viewpoint", "omnicient readers viewpoint", "omniscient readers view point"],
@@ -21,5 +22,5 @@
     "116353": ["demonic emperor", "magic emperor"],
     "105393": ["returners magic should be special", "the returners magic should be special"]
   },
-  "block": ["same", "peak", "water", "goat", "goated", "manhwa", "manga", "manhua", "webtoon", "the end", "top", "best", "mc", "fl", "ml", "romance", "action", "isekai", "murim", "regression", "system", "tower", "hero", "hunter", "god", "king", "queen", "villainess", "duke", "princess", "the beginning", "dungeon", "hua"]
+  "block": ["same", "peak", "water", "goat", "goated", "manhwa", "manga", "manhua", "webtoon", "the end", "top", "best", "mc", "fl", "ml", "romance", "action", "isekai", "murim", "regression", "system", "tower", "hero", "hunter", "god", "king", "queen", "villainess", "duke", "princess", "the beginning", "dungeon", "hua", "fantasy", "horror", "thriller", "drama", "comedy", "mystery", "psychological", "tragedy", "adventure", "supernatural", "survival", "apocalypse", "revenge", "rebirth", "reincarnation", "cultivation", "wuxia", "harem", "sports", "strategy", "game", "btw", "imo", "tbh", "idk", "lol", "lmao", "omg", "wtf", "ngl", "smh", "fyi", "pov", "irl", "mls", "mlm", "fls", "mcs", "thr", "nihei", "mage", "vigilante", "sweetheart", "otomo", "yuna", "yuki"]
 }

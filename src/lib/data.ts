@@ -13,7 +13,6 @@ export const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
 export const RATINGS_TAG = "ratings";
 export const TIER_VALUE: Record<Tier, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 };
 
-
 // Scores are computed on the S..D scale (1-5) and shown out of 100
 export function scoreOutOf100(score: number): number {
   return Math.round(((score - 1) / 4) * 100);
@@ -36,6 +35,7 @@ export interface RankedTitle extends TitleCard {
 
 export interface TitleDetail extends RankedTitle {
   romaji: string | null;
+  native: string | null;
   status: string | null;
   genres: string[];
   url: string;
@@ -49,9 +49,16 @@ export interface Quote {
   thread: { title: string; subreddit: string; url: string };
 }
 
+// Loved (S) titles steer recommendations far more than liked (A) ones
+export const TIER_WEIGHT: Partial<Record<Tier, number>> = { S: 1, A: 0.35 };
+
 export interface Recommendation {
   title: TitleCard;
   score: number;
+  // 0-100, relative to the best recommendation of the same list
+  match: number;
+  // Reddit readers and site users who like one of the seed titles and this one
+  readers: number;
   because: TitleCard[];
 }
 
@@ -93,7 +100,10 @@ export async function getRanking(): Promise<RankedTitle[]> {
   // (floored, so a kind with a handful of mentions can't hand out 5/5 priors)
   const maxMentions = new Map<string, number>();
   for (const r of rows) {
-    maxMentions.set(String(r.kind), Math.max(maxMentions.get(String(r.kind)) ?? MIN_KIND_REFERENCE, Number(r.mentions)));
+    maxMentions.set(
+      String(r.kind),
+      Math.max(maxMentions.get(String(r.kind)) ?? MIN_KIND_REFERENCE, Number(r.mentions)),
+    );
   }
   const scored = rows.map((row) => {
     const mentions = Number(row.mentions);
@@ -127,6 +137,7 @@ export async function getTitle(slug: string): Promise<TitleDetail | null> {
     votes: ranked?.votes ?? 0,
     score: ranked?.score ?? 0,
     romaji: row.romaji as string | null,
+    native: row.native as string | null,
     status: row.status as string | null,
     genres: row.genres as string[],
     url: String(row.url),
@@ -175,7 +186,7 @@ async function basketSizes(): Promise<Map<number, number>> {
   return new Map(rows.map((r) => [Number(r.title_id), Number(r.n)]));
 }
 
-// Item-to-item collaborative filtering over "baskets" (a Reddit comment or a user's S/A titles):
+// Item-to-item collaborative filtering over "baskets" (a Reddit user's citations or a site user's S/A titles):
 // titles liked by the same readers are similar, normalized so blockbusters don't dominate.
 export async function recommend(
   liked: { titleId: number; weight: number }[],
@@ -185,9 +196,11 @@ export async function recommend(
   if (liked.length === 0) return [];
   const weights = new Map(liked.map((l) => [l.titleId, l.weight]));
 
+  // A pair from a 3-title comment says more than a pair from a 70-title list, so big baskets weigh less
   const rows = await sql`
-    SELECT b1.title_id AS source, b2.title_id AS candidate, COUNT(*)::int AS together
-    FROM baskets b1 JOIN baskets b2 ON b1.basket = b2.basket AND b2.title_id <> b1.title_id
+    WITH weighted AS (SELECT basket, title_id, 1 / sqrt(COUNT(*) OVER (PARTITION BY basket)) AS w FROM baskets)
+    SELECT b1.title_id AS source, b2.title_id AS candidate, SUM(b1.w)::float AS together
+    FROM weighted b1 JOIN weighted b2 ON b1.basket = b2.basket AND b2.title_id <> b1.title_id
     WHERE b1.title_id IN ${sql([...weights.keys()])} AND b1.basket <> ${skipBasket ?? ""}
     GROUP BY b1.title_id, b2.title_id
   `;
@@ -208,20 +221,31 @@ export async function recommend(
   }
 
   const top = [...candidates].sort((a, b) => b[1].score - a[1].score).slice(0, limit);
+  if (top.length === 0) return [];
   const ids = [...new Set(top.flatMap(([id, e]) => [id, ...e.sources.keys()]))];
-  const cards = await getCards(ids);
+  const [cards, readerRows] = await Promise.all([
+    getCards(ids),
+    sql`
+      SELECT b2.title_id, COUNT(DISTINCT b2.basket)::int AS n
+      FROM baskets b1 JOIN baskets b2 ON b1.basket = b2.basket
+      WHERE b1.title_id IN ${sql([...weights.keys()])} AND b2.title_id IN ${sql(top.map(([id]) => id))}
+        AND b1.basket <> ${skipBasket ?? ""}
+      GROUP BY b2.title_id
+    `,
+  ]);
+  const readers = new Map(readerRows.map((r) => [Number(r.title_id), Number(r.n)]));
+  const best = top[0][1].score;
 
   return top.map(([id, entry]) => ({
     title: cards.get(id)!,
     score: entry.score,
-    because: [...entry.sources]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
-      .map(([sourceId]) => cards.get(sourceId)!),
+    match: Math.round((100 * entry.score) / best),
+    readers: readers.get(id) ?? 0,
+    because: [...entry.sources].sort((a, b) => b[1] - a[1]).map(([sourceId]) => cards.get(sourceId)!),
   }));
 }
 
-export async function similarTitles(titleId: number, limit = 8): Promise<Recommendation[]> {
+export async function similarTitles(titleId: number, limit = 12): Promise<Recommendation[]> {
   "use cache";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
@@ -261,12 +285,17 @@ export async function getShareInfo(userId: string): Promise<{ shareId: string; l
 // Share of common titles both readers rated, weighted by how close their tiers are (same tier = 100%)
 export function tasteMatch(a: LibraryEntry[], b: LibraryEntry[]): { common: number; match: number } | null {
   const tiersOf = new Map(b.filter((e) => e.tier).map((e) => [e.title.id, TIER_VALUE[e.tier!]]));
-  const gaps = a.filter((e) => e.tier && tiersOf.has(e.title.id)).map((e) => Math.abs(TIER_VALUE[e.tier!] - tiersOf.get(e.title.id)!));
+  const gaps = a
+    .filter((e) => e.tier && tiersOf.has(e.title.id))
+    .map((e) => Math.abs(TIER_VALUE[e.tier!] - tiersOf.get(e.title.id)!));
   if (gaps.length === 0) return null;
   return { common: gaps.length, match: Math.round(100 * (1 - gaps.reduce((x, y) => x + y, 0) / (4 * gaps.length))) };
 }
 
-export async function getEntry(userId: string, titleId: number): Promise<{ tier: Tier | null; state: LibraryState } | null> {
+export async function getEntry(
+  userId: string,
+  titleId: number,
+): Promise<{ tier: Tier | null; state: LibraryState } | null> {
   const [row] = await sql`SELECT tier, state FROM ratings WHERE user_id = ${userId} AND title_id = ${titleId}`;
   return row ? { tier: (row.tier as Tier | null) ?? null, state: row.state as LibraryState } : null;
 }
@@ -275,7 +304,7 @@ export async function personalRecommendations(userId: string, limit = 20): Promi
   const library = await getLibrary(userId);
   const liked = library
     .filter((e) => e.tier === "S" || e.tier === "A")
-    .map((e) => ({ titleId: e.title.id, weight: e.tier === "S" ? 1 : 0.7 }));
+    .map((e) => ({ titleId: e.title.id, weight: TIER_WEIGHT[e.tier!] ?? 0 }));
   const exclude = new Set(library.map((e) => e.title.id));
   return recommend(liked, exclude, { limit, skipBasket: `u:${userId}` });
 }
