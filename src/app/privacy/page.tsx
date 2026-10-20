@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <h1>Privacy</h1>
       <p className="muted">Last updated: 20 October 2026</p>
 
-      <p>{SITE_NAME} has no accounts, no ads and no analytics. Here is everything it stores, and why.</p>
+      <p>{SITE_NAME} has no accounts and no ads. Here is everything it stores, and why.</p>
 
       <h2>What is stored</h2>
       <ul>
@@ -30,6 +30,13 @@ export default function PrivacyPage() {
         </li>
       </ul>
       <p>No email, name or payment data is ever collected.</p>
+
+      <h2>Audience measurement</h2>
+      <p>
+        Visits are counted with Vercel Web Analytics, which sets no cookie and keeps no personal data: only aggregated
+        page views, referrers, countries and a few anonymous events (such as copying a share link). Visitors are told
+        apart by a hash that resets every day, so nobody can be followed over time or across sites.
+      </p>
 
       <h2>Reddit quotes</h2>
       <p>

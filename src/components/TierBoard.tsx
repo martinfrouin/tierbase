@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { search, setEntry } from "@/app/actions";
@@ -95,9 +96,10 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
     setPool((prev) => [...found.filter((t) => !placedIds.has(t.id)), ...prev.filter((p) => !found.some((f) => f.id === p.id))]);
   };
 
-  const copy = async (text: string, message: string) => {
+  const copy = async (text: string, message: string, event: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      track(event, { kind: kind ?? "all" });
       notify(message);
     } catch {
       notify("Copy failed");
@@ -120,11 +122,11 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
       {hasPlaced && (
         <div className="tierlist-actions">
           {filteredShareUrl && (
-            <button className="button primary" onClick={() => copy(filteredShareUrl, "Link copied")}>
+            <button className="button primary" onClick={() => copy(filteredShareUrl, "Link copied", "Share link copied")}>
               Copy share link
             </button>
           )}
-          <button className="button" onClick={() => copy(markdown(), "Markdown copied")}>
+          <button className="button" onClick={() => copy(markdown(), "Markdown copied", "Reddit markdown copied")}>
             Copy for Reddit
           </button>
         </div>

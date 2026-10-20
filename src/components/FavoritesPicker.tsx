@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import Cover from "@/components/Cover";
@@ -32,6 +33,7 @@ export default function FavoritesPicker({ suggestions }: { suggestions: TitleCar
   const submit = () =>
     startSaving(async () => {
       await saveFavorites(picked.map((t) => t.id));
+      track("Favorites picked", { count: picked.length });
       router.push("/for-you");
     });
 

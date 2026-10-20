@@ -33,6 +33,16 @@ Postgres, in Docker locally (`docker-compose.yml`). Schema in `db/schema.sql`.
 - **Site**: Vercel, deployed on every push to `main` by the Git integration. `DATABASE_URL` points to the VM with `?sslmode=require`.
 - **Database and sync worker**: a VM running `compose.prod.yml` (Postgres with TLS required for outside connections, plus the daily sync worker). `.github/workflows/deploy-vm.yml` rsyncs the worker files and restarts the stack when they change. The VM keeps `.env` (`POSTGRES_PASSWORD`), `certs/` (self-signed TLS certificate) and `data/cache/` between deploys.
 
+## Stats
+
+`npm run stats` prints tier list, rating and top title counts for the database in `DATABASE_URL`. For production:
+
+```bash
+ssh <vm> 'cd ~/tierbase && docker compose -f compose.prod.yml exec -T worker npm run --silent stats'
+```
+
+Visits come from Vercel Web Analytics (cookieless), with custom events for picking favorites and copying a share link or Reddit markdown.
+
 ## Support
 
 If TierBase found you a good read, [buy me a coffee ☕](https://github.com/sponsors/martinfrouin).
