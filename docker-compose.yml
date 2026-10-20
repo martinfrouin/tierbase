@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: panelrank
+      POSTGRES_PASSWORD: panelrank
+      POSTGRES_DB: panelrank
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panelrank"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  pgdata:

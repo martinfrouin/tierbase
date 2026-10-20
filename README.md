@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Panelrank
 
-## Getting Started
+Personal manga, manhwa and manhua recommendations. The catalog comes from AniList, the initial signal from Reddit recommendation threads, and visitors refine both with their tier lists.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
+npm run db:seed   # builds data/panelrank.db from data/anilist.json + data/threads
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Data pipeline
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `npm run sync:catalog` downloads ~12k titles from AniList into `data/anilist.json` (weekly is enough). Titles AniList lacks go in `data/extra-titles.json`.
+- `npm run sync:threads` finds recommendation threads on Arctic Shift (Reddit archive) and saves their comments to `data/threads/*.json.gz`. Recent threads are re-fetched for a few days to catch new comments. `--backfill-days=N` restarts from N days ago.
+- `npm run db:seed` detects the titles cited in each comment and loads everything into the database. Reddit data is fully replaced on each run; users and ratings are kept.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Title detection (`scripts/lib/matcher.ts`) matches comment text against AniList titles, synonyms and generated acronyms. Community nicknames AniList doesn't know ("GED", "LMS") and false positives are fixed in `data/aliases.json`; individual comments can be ignored in `data/exclusions.json`.
 
-## Learn More
+## How ranking and recommendations work
 
-To learn more about Next.js, take a look at the following resources:
+- **Ranking**: Bayesian average. Each title starts with 5 virtual votes at a prior derived from its Reddit mentions (most cited ≈ 5/5, one mention ≈ 3/5); tier list votes (S=5 … D=1) progressively take over.
+- **Recommendations**: item-to-item collaborative filtering. A "basket" is one Reddit comment or one user's S/A titles; two titles are similar when the same baskets contain them, normalized by popularity so blockbusters don't dominate.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+libSQL: a local SQLite file by default, or Turso in production via `DATABASE_URL` and `DATABASE_AUTH_TOKEN`. Schema in `db/schema.sql`.
