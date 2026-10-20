@@ -30,12 +30,15 @@ export interface RankedTitle extends TitleCard {
   rank: number;
   mentions: number;
   votes: number;
+  // Site visitors' average vote, rounded to a tier
+  avgTier: Tier | null;
   score: number;
 }
 
 export interface TitleDetail extends RankedTitle {
   romaji: string | null;
   native: string | null;
+  tierCounts: Record<Tier, number>;
   status: string | null;
   genres: string[];
   url: string;
@@ -107,7 +110,8 @@ export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
     const prior = 3 + (2 * Math.log1p(mentions)) / Math.log1p(reference);
     const weight = Math.min(MAX_PRIOR_WEIGHT, Math.max(MIN_PRIOR_WEIGHT, mentions / 2));
     const score = (weight * prior + Number(row.total)) / (weight + votes);
-    return { ...toCard(row), mentions, votes, score, rank: 0 };
+    const avgTier = votes ? TIERS[5 - Math.round(Number(row.total) / votes)] : null;
+    return { ...toCard(row), mentions, votes, avgTier, score, rank: 0 };
   });
 
   scored.sort((a, b) => b.score - a.score || b.mentions - a.mentions);
@@ -124,13 +128,21 @@ export async function getTitle(slug: string): Promise<TitleDetail | null> {
     SELECT t.*, (SELECT COUNT(*)::int FROM mentions WHERE title_id = t.id) AS mentions FROM titles t WHERE slug = ${slug}
   `;
   if (!row) return null;
-  const ranked = (await getRanking()).find((t) => t.id === Number(row.id));
+  const [ranking, tierRows] = await Promise.all([
+    getRanking(),
+    sql`SELECT tier, COUNT(*)::int AS n FROM ratings WHERE title_id = ${row.id} AND tier IS NOT NULL GROUP BY tier`,
+  ]);
+  const ranked = ranking.find((t) => t.id === Number(row.id));
+  const tierCounts = Object.fromEntries(TIERS.map((t) => [t, 0])) as Record<Tier, number>;
+  for (const r of tierRows) tierCounts[String(r.tier).trim() as Tier] = Number(r.n);
   return {
     ...toCard(row),
     rank: ranked?.rank ?? 0,
     mentions: Number(row.mentions),
     votes: ranked?.votes ?? 0,
+    avgTier: ranked?.avgTier ?? null,
     score: ranked?.score ?? 0,
+    tierCounts,
     romaji: row.romaji as string | null,
     native: row.native as string | null,
     status: row.status as string | null,

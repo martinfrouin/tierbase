@@ -167,7 +167,7 @@ main {
 
 .ranking-row {
   display: grid;
-  grid-template-columns: 48px 36px 1fr auto 40px;
+  grid-template-columns: 48px 36px 1fr 110px 100px 48px;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -205,7 +205,7 @@ main {
 
 @media (max-width: 560px) {
   .ranking-row {
-    grid-template-columns: 36px 36px 1fr 40px;
+    grid-template-columns: 36px 36px 1fr 48px;
   }
 
   .ranking-meta {
@@ -427,6 +427,7 @@ a.chip {
 .ranking-meta {
   font-size: 13px;
   white-space: nowrap;
+  text-align: right;
 }
 
 .picker-bar {
@@ -823,4 +824,43 @@ a.chip {
 
 .footer-links a {
   color: var(--muted);
+}
+
+.tier-votes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tier-votes span {
+  padding: 1px 8px;
+  border-radius: 6px;
+  color: #111;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ranking-head {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.ranking-head:hover {
+  background: none;
+}
+
+.tier-badge {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: #111;
+  font-weight: 700;
+  text-align: center;
 }

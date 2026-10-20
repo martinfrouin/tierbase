@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
 import RateButtons from "@/components/RateButtons";
-import { getEntry, getQuotes, getTitle, KINDS, scoreOutOf100, similarTitles } from "@/lib/data";
+import { getEntry, getQuotes, getTitle, KINDS, scoreOutOf100, similarTitles, TIERS } from "@/lib/data";
 import { currentUserId } from "@/lib/user";
 
 export async function generateMetadata({ params }: PageProps<"/title/[slug]">): Promise<Metadata> {
@@ -38,8 +38,18 @@ async function TitleContent({ params }: { params: Promise<{ slug: string }> }) {
                 #{title.rank} · {scoreOutOf100(title.score)}/100 ·{" "}
               </>
             )}
-            {title.mentions} Reddit mention{title.mentions === 1 ? "" : "s"} · {title.votes} vote{title.votes === 1 ? "" : "s"}
+            {title.mentions} Reddit mention{title.mentions === 1 ? "" : "s"}
           </p>
+          {title.votes > 0 && (
+            <p className="tier-votes muted">
+              TierBase readers:
+              {TIERS.filter((t) => title.tierCounts[t] > 0).map((t) => (
+                <span key={t} style={{ background: `var(--tier-${t.toLowerCase()})` }}>
+                  {t} × {title.tierCounts[t]}
+                </span>
+              ))}
+            </p>
+          )}
           {title.genres.length > 0 && <p className="muted">{title.genres.join(" · ")}</p>}
           {title.url && (
             <a href={title.url} target="_blank" rel="noreferrer" className="muted">

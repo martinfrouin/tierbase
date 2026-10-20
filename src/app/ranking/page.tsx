@@ -45,6 +45,14 @@ async function RankingList({ searchParams }: { searchParams: Promise<Params> }) 
         </div>
       </div>
 
+      <div className="ranking-row ranking-head muted" aria-hidden>
+        <span>Rank</span>
+        <span />
+        <span>Title</span>
+        <span className="ranking-meta">Mentions</span>
+        <span className="ranking-meta">Readers</span>
+        <span className="count">Score</span>
+      </div>
       <ol className="ranking">
         {visible.map((t) => (
           <li key={t.id}>
@@ -52,9 +60,18 @@ async function RankingList({ searchParams }: { searchParams: Promise<Params> }) 
               <span className="rank">#{t.rank}</span>
               <Cover src={t.cover} size="small" />
               <span className="ranking-name">{t.name}</span>
+              <span className="ranking-meta muted">{t.mentions}</span>
               <span className="ranking-meta muted">
-                {t.mentions} mention{t.mentions === 1 ? "" : "s"}
-                {t.votes > 0 && ` · ${t.votes} vote${t.votes === 1 ? "" : "s"}`}
+                {t.avgTier ? (
+                  <>
+                    <span className="tier-badge" style={{ background: `var(--tier-${t.avgTier.toLowerCase()})` }}>
+                      {t.avgTier}
+                    </span>{" "}
+                    ({t.votes})
+                  </>
+                ) : (
+                  "—"
+                )}
               </span>
               <span className="count">{scoreOutOf100(t.score)}</span>
             </Link>
