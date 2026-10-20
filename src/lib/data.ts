@@ -1,21 +1,23 @@
 import "server-only";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
 import { sql } from "@/lib/db";
+import { KINDS, type Kind } from "@/lib/kinds";
 
-export type Kind = "manhwa" | "manga" | "manhua" | "comic" | "novel";
+export { KINDS, type Kind };
+
 export type Tier = "S" | "A" | "B" | "C" | "D";
 export type LibraryState = "rated" | "want" | "skip";
 
 export const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
+// Cache tag for everything derived from votes; Server Actions expire it after each vote
+export const RATINGS_TAG = "ratings";
 export const TIER_VALUE: Record<Tier, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 };
 
-export const KINDS: { value: Kind; label: string }[] = [
-  { value: "manhwa", label: "Manhwa 🇰🇷" },
-  { value: "manga", label: "Manga 🇯🇵" },
-  { value: "manhua", label: "Manhua 🇨🇳" },
-  { value: "comic", label: "Comic" },
-  { value: "novel", label: "Novel" },
-];
+
+// Scores are computed on the S..D scale (1-5) and shown out of 100
+export function scoreOutOf100(score: number): number {
+  return Math.round(((score - 1) / 4) * 100);
+}
 
 export interface TitleCard {
   id: number;
@@ -53,8 +55,11 @@ export interface Recommendation {
   because: TitleCard[];
 }
 
-// Bayesian average: each title starts with PRIOR_WEIGHT virtual votes at a Reddit-based prior
-const PRIOR_WEIGHT = 5;
+// Bayesian average: each title starts with virtual votes at a Reddit-based prior. The more Reddit readers cited it,
+// the more virtual votes (half a vote per mention, clamped), so a lone tier list vote can't outweigh 40 recommendations.
+const MIN_PRIOR_WEIGHT = 3;
+const MAX_PRIOR_WEIGHT = 25;
+const MIN_KIND_REFERENCE = 20;
 // Damps similarities built on very few shared readers
 const SIMILARITY_SHRINK = 2;
 
@@ -71,6 +76,7 @@ function toCard(row: Record<string, unknown>): TitleCard {
 export async function getRanking(): Promise<RankedTitle[]> {
   "use cache";
   cacheLife("minutes");
+  cacheTag(RATINGS_TAG);
 
   const rows = await sql`
     WITH m AS (SELECT title_id, COUNT(*)::int AS n FROM mentions GROUP BY title_id),
@@ -83,13 +89,19 @@ export async function getRanking(): Promise<RankedTitle[]> {
     WHERE m.n > 0 OR r.votes > 0
   `;
 
-  const maxMentions = Math.max(1, ...rows.map((r) => Number(r.mentions)));
+  // Priors are relative to the same kind: subreddits differ in size, and manhwa threads shouldn't bury manga
+  // (floored, so a kind with a handful of mentions can't hand out 5/5 priors)
+  const maxMentions = new Map<string, number>();
+  for (const r of rows) {
+    maxMentions.set(String(r.kind), Math.max(maxMentions.get(String(r.kind)) ?? MIN_KIND_REFERENCE, Number(r.mentions)));
+  }
   const scored = rows.map((row) => {
     const mentions = Number(row.mentions);
     const votes = Number(row.votes);
-    // Most-cited title on Reddit starts at 5/5, a single mention at ~3/5
-    const prior = 3 + (2 * Math.log1p(mentions)) / Math.log1p(maxMentions);
-    const score = (PRIOR_WEIGHT * prior + Number(row.total)) / (PRIOR_WEIGHT + votes);
+    // Most-cited title of its kind starts at 5/5, a single mention at ~3/5
+    const prior = 3 + (2 * Math.log1p(mentions)) / Math.log1p(maxMentions.get(String(row.kind))!);
+    const weight = Math.min(MAX_PRIOR_WEIGHT, Math.max(MIN_PRIOR_WEIGHT, mentions / 2));
+    const score = (weight * prior + Number(row.total)) / (weight + votes);
     return { ...toCard(row), mentions, votes, score, rank: 0 };
   });
 
@@ -101,6 +113,7 @@ export async function getRanking(): Promise<RankedTitle[]> {
 export async function getTitle(slug: string): Promise<TitleDetail | null> {
   "use cache";
   cacheLife("minutes");
+  cacheTag(RATINGS_TAG);
 
   const [row] = await sql`
     SELECT t.*, (SELECT COUNT(*)::int FROM mentions WHERE title_id = t.id) AS mentions FROM titles t WHERE slug = ${slug}
@@ -156,6 +169,7 @@ export async function searchTitles(query: string, limit = 24): Promise<TitleCard
 async function basketSizes(): Promise<Map<number, number>> {
   "use cache";
   cacheLife("minutes");
+  cacheTag(RATINGS_TAG);
 
   const rows = await sql`SELECT title_id, COUNT(*)::int AS n FROM baskets GROUP BY title_id`;
   return new Map(rows.map((r) => [Number(r.title_id), Number(r.n)]));
@@ -210,6 +224,7 @@ export async function recommend(
 export async function similarTitles(titleId: number, limit = 8): Promise<Recommendation[]> {
   "use cache";
   cacheLife("minutes");
+  cacheTag(RATINGS_TAG);
   return recommend([{ titleId, weight: 1 }], new Set(), { limit });
 }
 
@@ -233,14 +248,22 @@ export async function getLibrary(userId: string): Promise<LibraryEntry[]> {
   return rows.map((r) => ({ title: toCard(r), tier: (r.tier as Tier | null) ?? null, state: r.state as LibraryState }));
 }
 
-export async function getUserByShareId(shareId: string): Promise<string | null> {
-  const [row] = await sql`SELECT id FROM users WHERE share_id = ${shareId}`;
-  return row ? String(row.id) : null;
+export async function getUserByShareId(shareId: string): Promise<{ id: string; listName: string | null } | null> {
+  const [row] = await sql`SELECT id, list_name FROM users WHERE share_id = ${shareId}`;
+  return row ? { id: String(row.id), listName: (row.list_name as string | null) ?? null } : null;
 }
 
-export async function getShareId(userId: string): Promise<string | null> {
-  const [row] = await sql`SELECT share_id FROM users WHERE id = ${userId}`;
-  return row ? String(row.share_id) : null;
+export async function getShareInfo(userId: string): Promise<{ shareId: string; listName: string | null } | null> {
+  const [row] = await sql`SELECT share_id, list_name FROM users WHERE id = ${userId}`;
+  return row ? { shareId: String(row.share_id), listName: (row.list_name as string | null) ?? null } : null;
+}
+
+// Share of common titles both readers rated, weighted by how close their tiers are (same tier = 100%)
+export function tasteMatch(a: LibraryEntry[], b: LibraryEntry[]): { common: number; match: number } | null {
+  const tiersOf = new Map(b.filter((e) => e.tier).map((e) => [e.title.id, TIER_VALUE[e.tier!]]));
+  const gaps = a.filter((e) => e.tier && tiersOf.has(e.title.id)).map((e) => Math.abs(TIER_VALUE[e.tier!] - tiersOf.get(e.title.id)!));
+  if (gaps.length === 0) return null;
+  return { common: gaps.length, match: Math.round(100 * (1 - gaps.reduce((x, y) => x + y, 0) / (4 * gaps.length))) };
 }
 
 export async function getEntry(userId: string, titleId: number): Promise<{ tier: Tier | null; state: LibraryState } | null> {

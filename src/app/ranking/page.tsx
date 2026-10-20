@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
-import { getRanking, KINDS, type Kind } from "@/lib/data";
+import { getRanking, KINDS, scoreOutOf100, type Kind } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Ranking" };
 
@@ -56,7 +56,7 @@ async function RankingList({ searchParams }: { searchParams: Promise<Params> }) 
                 {t.mentions} mention{t.mentions === 1 ? "" : "s"}
                 {t.votes > 0 && ` · ${t.votes} vote${t.votes === 1 ? "" : "s"}`}
               </span>
-              <span className="count">{t.score.toFixed(1)}</span>
+              <span className="count">{scoreOutOf100(t.score)}</span>
             </Link>
           </li>
         ))}
@@ -78,7 +78,7 @@ export default function RankingPage({ searchParams }: PageProps<"/ranking">) {
         <h1>Ranking</h1>
         <p className="muted">
           Every title starts from how often Reddit recommends it, then moves with the tier lists people build here. Scores
-          are out of 5.
+          are out of 100.
         </p>
       </section>
       <Suspense fallback={<p className="muted">Loading the ranking…</p>}>

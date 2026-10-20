@@ -3,16 +3,16 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: panelrank
+      POSTGRES_USER: tierbase
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: panelrank
+      POSTGRES_DB: tierbase
     # Published on loopback only, so the image build (host network) can prerender pages
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U panelrank"]
+      test: ["CMD-SHELL", "pg_isready -U tierbase"]
       interval: 2s
       retries: 15
 
@@ -22,10 +22,10 @@ services:
       target: app
       network: host
       args:
-        DATABASE_URL: postgres://panelrank:${POSTGRES_PASSWORD}@127.0.0.1:5432/panelrank
+        DATABASE_URL: postgres://tierbase:${POSTGRES_PASSWORD}@127.0.0.1:5432/tierbase
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://panelrank:${POSTGRES_PASSWORD}@db:5432/panelrank
+      DATABASE_URL: postgres://tierbase:${POSTGRES_PASSWORD}@db:5432/tierbase
     depends_on:
       db:
         condition: service_healthy
@@ -36,7 +36,7 @@ services:
       target: worker
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://panelrank:${POSTGRES_PASSWORD}@db:5432/panelrank
+      DATABASE_URL: postgres://tierbase:${POSTGRES_PASSWORD}@db:5432/tierbase
     volumes:
       - ./data/cache:/app/data/cache
     depends_on:

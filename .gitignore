@@ -47,7 +47,3 @@ data/sync.log
 data/cache/
 data/dev.log
 
-# Mutable data (catalog cache, Reddit threads, sync state), lives in data/cache on servers
-data/anilist.json
-data/state.json
-data/threads/

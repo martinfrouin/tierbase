@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Suspense } from "react";
+import ListName from "@/components/ListName";
 import TierBoard from "@/components/TierBoard";
-import { getLibrary, getRanking, getShareId, type Tier } from "@/lib/data";
+import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
 import { currentUserId } from "@/lib/user";
 
 export const metadata: Metadata = { title: "My tier list" };
@@ -18,11 +19,16 @@ async function MyBoard() {
   const wantToRead = library.filter((e) => e.state === "want").map((e) => e.title);
   const popular = (await getRanking()).filter((t) => !inLibrary.has(t.id)).slice(0, POOL_SIZE);
 
-  const shareId = userId ? await getShareId(userId) : null;
+  const share = userId ? await getShareInfo(userId) : null;
   const host = (await headers()).get("host");
-  const shareUrl = shareId && host ? `${host.startsWith("localhost") ? "http" : "https"}://${host}/tierlist/${shareId}` : undefined;
+  const shareUrl = share && host ? `${host.startsWith("localhost") ? "http" : "https"}://${host}/tierlist/${share.shareId}` : undefined;
 
-  return <TierBoard placed={placed} pool={[...wantToRead, ...popular]} editable shareUrl={shareUrl} />;
+  return (
+    <>
+      {share && <ListName initial={share.listName} />}
+      <TierBoard placed={placed} wantToRead={wantToRead} pool={popular} editable shareUrl={shareUrl} />
+    </>
+  );
 }
 
 export default function TierListPage() {

@@ -1,1 +1,1 @@
-export const SITE_NAME = "Panelrank";
+export const SITE_NAME = "Tierbase";

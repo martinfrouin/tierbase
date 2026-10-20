@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
 import RateButtons from "@/components/RateButtons";
-import { getEntry, getQuotes, getTitle, KINDS, similarTitles } from "@/lib/data";
+import { getEntry, getQuotes, getTitle, KINDS, scoreOutOf100, similarTitles } from "@/lib/data";
 import { currentUserId } from "@/lib/user";
 
 export async function generateMetadata({ params }: PageProps<"/title/[slug]">): Promise<Metadata> {
@@ -34,7 +34,7 @@ async function TitleContent({ params }: { params: Promise<{ slug: string }> }) {
             <span className="tag">{KINDS.find((k) => k.value === title.kind)?.label}</span>{" "}
             {title.rank > 0 && (
               <>
-                #{title.rank} · {title.score.toFixed(1)}/5 ·{" "}
+                #{title.rank} · {scoreOutOf100(title.score)}/100 ·{" "}
               </>
             )}
             {title.mentions} Reddit mention{title.mentions === 1 ? "" : "s"} · {title.votes} vote{title.votes === 1 ? "" : "s"}

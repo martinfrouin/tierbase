@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS users (
   share_id TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Shown as the title of the shared tier list
+ALTER TABLE users ADD COLUMN IF NOT EXISTS list_name TEXT;
 
 -- tier: S..D, or NULL for "want to read" / "not interested" entries
 CREATE TABLE IF NOT EXISTS ratings (

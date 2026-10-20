@@ -7,12 +7,21 @@ import { isRecommendationThread } from "./lib/threads.ts";
 const ROOT = join(import.meta.dirname, "..");
 const API = "https://arctic-shift.photon-reddit.com/api";
 const STATE_FILE = join(ROOT, "data/cache/state.json");
+const THREADS_DIR = join(ROOT, "data/cache/threads");
 
-const SUBREDDITS = ["manhwa", "manhwarecommendations", "manga", "manhua", "webtoons"];
-const BACKFILL_ARG = process.argv.find((a) => a.startsWith("--backfill-days="))?.split("=")[1];
-const BACKFILL_DAYS = Number(BACKFILL_ARG ?? 30);
+// Sources per kind, so manga, manhwa and manhua each get comparable coverage
+const SUBREDDITS = ["manhwa", "manhwarecommendations", "webtoons", "manga", "MangaRecommendations", "manhua"];
+const DAY = 86400;
+// Each run extends the history further back by this much, until MAX_HISTORY_DAYS
+const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
+const HISTORY_DAYS = Number(arg("history-days") ?? 30);
+// Fixed target instead ("cover the last N days"), safe to re-run after an interruption
+const BACKFILL_TO_DAYS = arg("backfill-to-days");
+const MAX_HISTORY_DAYS = 730;
+const BLOCK_DAYS = 7;
 const REFRESH_DAYS = 4;
 const MIN_COMMENTS = 10;
+const CONSENSUS = /\b(best|favou?rites?|goats?|top ?\d+|all[- ]?time|underrated|hidden gems?|must[- ]?reads?)\b/i;
 
 interface Post {
   id: string;
@@ -35,34 +44,37 @@ interface Comment {
 }
 
 interface State {
-  lastSeen: Record<string, number>;
-  pending: Record<string, Post>;
+  // Everything between oldest and newest has been scanned, per subreddit
+  newest: Record<string, number>;
+  oldest: Record<string, number>;
+  // Recent threads re-fetched for a few days to catch new comments
+  recent: Record<string, Post>;
 }
 
-const state: State = existsSync(STATE_FILE)
-  ? JSON.parse(readFileSync(STATE_FILE, "utf8"))
-  : { lastSeen: {}, pending: {} };
 const now = Math.floor(Date.now() / 1000);
-mkdirSync(join(ROOT, "data/cache/threads"), { recursive: true });
+mkdirSync(THREADS_DIR, { recursive: true });
+const state: State = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, "utf8")) : {};
+state.newest ??= {};
+state.oldest ??= {};
+state.recent ??= {};
 const saveState = () => writeFileSync(STATE_FILE, JSON.stringify(state, null, 1));
 
-async function discover(subreddit: string): Promise<Post[]> {
-  // An explicit --backfill-days restarts the walk from that far back
-  let after = (BACKFILL_ARG ? undefined : state.lastSeen[subreddit]) ?? now - BACKFILL_DAYS * 86400;
+async function scan(subreddit: string, after: number, before: number): Promise<Post[]> {
   const found: Post[] = [];
-  // Unbounded searches time out on Arctic Shift, so walk one day at a time
-  while (after < now) {
-    const before = Math.min(after + 86400, now);
-    const url =
-      `${API}/posts/search?subreddit=${subreddit}&after=${after}&before=${before}&sort=asc&limit=100` +
-      `&fields=id,title,author,subreddit,created_utc,link_flair_text`;
-    const { data } = await fetchJson<{ data: Post[] }>(url);
-    for (const post of data) post.permalink = `/r/${post.subreddit}/comments/${post.id}/`;
-    found.push(...data.filter(isRecommendationThread));
-    after = data.length === 100 ? data[data.length - 1].created_utc : before;
-    if (before % (7 * 86400) < 86400) console.log(`r/${subreddit}: ${new Date(after * 1000).toISOString().slice(0, 10)}, ${found.length} candidate(s)`);
-    state.lastSeen[subreddit] = after;
-    if (found.length && found.length % 200 === 0) saveState();
+  // Wider windows time out on busy subreddits like r/manga, so walk one day at a time, newest first
+  for (let dayEnd = before; dayEnd > after; dayEnd -= DAY) {
+    const dayStart = Math.max(after, dayEnd - DAY);
+    let cursor = dayEnd;
+    for (;;) {
+      const { data } = await fetchJson<{ data: Post[] }>(
+        `${API}/posts/search?subreddit=${subreddit}&after=${dayStart}&before=${cursor}&sort=desc&limit=100` +
+          `&fields=id,title,author,subreddit,created_utc,link_flair_text`,
+      );
+      for (const post of data) post.permalink = `/r/${post.subreddit}/comments/${post.id}/`;
+      found.push(...data.filter(isRecommendationThread));
+      if (data.length < 100) break;
+      cursor = data[data.length - 1].created_utc;
+    }
   }
   return found;
 }
@@ -70,57 +82,69 @@ async function discover(subreddit: string): Promise<Post[]> {
 function flatten(things: { kind: string; data: Comment }[], out: Omit<Comment, "replies">[] = []) {
   for (const { kind, data } of things) {
     if (kind !== "t1") continue;
-    const { replies, ...comment } = data;
-    out.push({ id: comment.id, parent_id: comment.parent_id, author: comment.author, body: comment.body, score: comment.score, created_utc: comment.created_utc });
-    if (replies) flatten(replies.data.children, out);
+    out.push({ id: data.id, parent_id: data.parent_id, author: data.author, body: data.body, score: data.score, created_utc: data.created_utc });
+    if (data.replies) flatten(data.replies.data.children, out);
   }
   return out;
 }
 
-async function fetchThread(post: Post) {
-  const { data } = await fetchJson<{ data: { kind: string; data: Comment }[] }>(
-    `${API}/comments/tree?link_id=${post.id}&limit=9999`,
-  );
-  const comments = flatten(data);
-  if (comments.length < MIN_COMMENTS) return 0;
-  writeFileSync(
-    join(ROOT, "data/cache/threads", `${post.id}.json.gz`),
-    gzipSync(JSON.stringify({ post, fetchedAt: now, comments })),
-  );
-  return comments.length;
-}
-
 let saved = 0;
-let processed = 0;
-const fetched = new Set<string>();
-
-async function fetchPending(subreddit?: string) {
-  for (const post of Object.values(state.pending)) {
-    if (fetched.has(post.id) || (subreddit && post.subreddit.toLowerCase() !== subreddit)) continue;
-    fetched.add(post.id);
+async function fetchThreads(posts: Post[]) {
+  // Consensus threads ("best manhwa ever?") first, they carry the most signal
+  const ordered = [...posts].sort((a, b) => Number(CONSENSUS.test(b.title)) - Number(CONSENSUS.test(a.title)));
+  for (const post of ordered) {
+    const file = join(THREADS_DIR, `${post.id}.json.gz`);
+    const isRecent = now - post.created_utc < REFRESH_DAYS * DAY;
+    if (isRecent) state.recent[post.id] = post;
+    if (existsSync(file) && !isRecent) continue;
     try {
-      if ((await fetchThread(post)) > 0) saved++;
+      const { data } = await fetchJson<{ data: { kind: string; data: Comment }[] }>(
+        `${API}/comments/tree?link_id=${post.id}&limit=9999`,
+      );
+      const comments = flatten(data);
+      if (comments.length < MIN_COMMENTS) continue;
+      writeFileSync(file, gzipSync(JSON.stringify({ post, fetchedAt: now, comments })));
+      saved++;
     } catch (error) {
       console.warn(`Skipping ${post.id}: ${(error as Error).message}`);
-      continue;
-    }
-    if (now - post.created_utc > REFRESH_DAYS * 86400) delete state.pending[post.id];
-    if (++processed % 50 === 0) {
-      saveState();
-      console.log(`${processed} thread(s) fetched`);
     }
   }
   saveState();
 }
 
-// Fetch each subreddit's threads right after discovering them, so a long backfill becomes usable progressively
+// 1. Catch up on new posts, and keep refreshing recent threads
 for (const subreddit of SUBREDDITS) {
-  const posts = await discover(subreddit);
-  for (const post of posts) state.pending[post.id] = post;
-  saveState();
-  console.log(`r/${subreddit}: ${posts.length} new candidate thread(s)`);
-  await fetchPending(subreddit);
+  const from = state.newest[subreddit] ?? now - DAY;
+  state.oldest[subreddit] ??= from;
+  const posts = await scan(subreddit, from, now);
+  state.newest[subreddit] = now;
+  await fetchThreads(posts);
+  console.log(`r/${subreddit}: ${posts.length} new candidate(s)`);
 }
-await fetchPending();
+for (const [id, post] of Object.entries(state.recent)) {
+  if (now - post.created_utc >= REFRESH_DAYS * DAY) delete state.recent[id];
+}
+await fetchThreads(Object.values(state.recent));
 
-console.log(`${saved} thread(s) saved, ${Object.keys(state.pending).length} still refreshing`);
+// 2. Extend history backwards one week at a time, all subreddits together, so data stays balanced if interrupted
+const target = now - MAX_HISTORY_DAYS * DAY;
+const stopAt = Math.max(
+  target,
+  BACKFILL_TO_DAYS ? now - Number(BACKFILL_TO_DAYS) * DAY : Math.min(...SUBREDDITS.map((s) => state.oldest[s])) - HISTORY_DAYS * DAY,
+);
+for (;;) {
+  const pending = SUBREDDITS.filter((s) => state.oldest[s] > stopAt);
+  if (pending.length === 0) break;
+  for (const subreddit of pending) {
+    const before = state.oldest[subreddit];
+    const after = Math.max(stopAt, before - BLOCK_DAYS * DAY);
+    const posts = await scan(subreddit, after, before);
+    await fetchThreads(posts);
+    state.oldest[subreddit] = after;
+    saveState();
+    console.log(`r/${subreddit}: back to ${new Date(after * 1000).toISOString().slice(0, 10)} (${posts.length} candidates, ${saved} threads saved so far)`);
+  }
+}
+
+saveState();
+console.log(`Done: ${saved} thread(s) saved`);

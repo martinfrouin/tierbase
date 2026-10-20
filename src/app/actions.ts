@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { sql } from "@/lib/db";
 import { ensureUserId } from "@/lib/user";
-import { searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
+import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 
 export async function setEntry(titleId: number, entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> } | null) {
   const userId = await ensureUserId();
@@ -18,6 +18,7 @@ export async function setEntry(titleId: number, entry: { tier: Tier } | { state:
       ON CONFLICT (user_id, title_id) DO UPDATE SET tier = excluded.tier, state = excluded.state, updated_at = now()
     `;
   }
+  updateTag(RATINGS_TAG);
   revalidatePath("/for-you");
   revalidatePath("/tierlist");
 }
@@ -28,4 +29,11 @@ export async function saveFavorites(titleIds: number[]) {
 
 export async function search(query: string): Promise<TitleCard[]> {
   return searchTitles(query.slice(0, 80));
+}
+
+export async function setListName(name: string) {
+  const userId = await ensureUserId();
+  const cleaned = name.trim().slice(0, 60) || null;
+  await sql`UPDATE users SET list_name = ${cleaned} WHERE id = ${userId}`;
+  revalidatePath("/tierlist");
 }

@@ -531,3 +531,106 @@ a.chip {
 .quote-thread:hover {
   color: var(--text);
 }
+
+.card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-cover {
+  width: 20px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.board-help {
+  margin: 12px 0 0;
+}
+
+.pool-section h2 {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+
+.pool.want {
+  min-height: 56px;
+  border-color: var(--accent);
+}
+
+.pool.target {
+  background: var(--surface-hover);
+  cursor: pointer;
+}
+
+.pool-section .search {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.list-name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 420px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.list-name-input {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.match {
+  margin: 8px 0 0;
+}
+
+.tiers.visual .tier {
+  min-height: 112px;
+}
+
+.tiers.visual .tier-items {
+  gap: 8px;
+}
+
+.tier-cover {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 76px;
+  font-size: 12px;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.tier-cover span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tier-cover:hover .cover {
+  outline: 2px solid var(--accent);
+}
+
+.cta {
+  margin: 32px 0 0;
+  text-align: center;
+}
+
+.cta .button {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.board-filter {
+  margin: 0 0 12px;
+}

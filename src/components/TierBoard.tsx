@@ -1,30 +1,36 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState } from "react";
 import { search, setEntry } from "@/app/actions";
 import type { TitleCard, Tier } from "@/lib/data";
+import { KINDS, type Kind } from "@/lib/kinds";
 import { SITE_NAME } from "@/lib/site";
 
 const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
 const POOL = "pool";
-type Slot = Tier | typeof POOL;
+const WANT = "want";
+type Slot = Tier | typeof POOL | typeof WANT;
 
 interface Props {
   placed: { title: TitleCard; tier: Tier }[];
+  wantToRead?: TitleCard[];
   pool: TitleCard[];
   editable: boolean;
   shareUrl?: string;
 }
 
-export default function TierBoard({ placed, pool: initialPool, editable, shareUrl }: Props) {
+export default function TierBoard({ placed, wantToRead = [], pool: initialPool, editable, shareUrl }: Props) {
   const [tiers, setTiers] = useState<Record<Tier, TitleCard[]>>(() => {
     const byTier = { S: [], A: [], B: [], C: [], D: [] } as Record<Tier, TitleCard[]>;
     for (const { title, tier } of placed) byTier[tier].push(title);
     return byTier;
   });
+  const [want, setWant] = useState(wantToRead);
   const [pool, setPool] = useState(initialPool);
   const [selected, setSelected] = useState<TitleCard | null>(null);
   const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<Kind | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const latestQuery = useRef("");
 
@@ -33,20 +39,20 @@ export default function TierBoard({ placed, pool: initialPool, editable, shareUr
     setTimeout(() => setToast(null), 2000);
   };
 
-  const find = (id: number) => [...Object.values(tiers).flat(), ...pool].find((t) => t.id === id);
+  const find = (id: number) => [...Object.values(tiers).flat(), ...want, ...pool].find((t) => t.id === id);
 
   const move = (title: TitleCard, target: Slot) => {
     setTiers((prev) => {
       const next = Object.fromEntries(TIERS.map((t) => [t, prev[t].filter((x) => x.id !== title.id)])) as Record<Tier, TitleCard[]>;
-      if (target !== POOL) next[target].push(title);
+      if (target !== POOL && target !== WANT) next[target].push(title);
       return next;
     });
-    setPool((prev) => {
-      const rest = prev.filter((x) => x.id !== title.id);
-      return target === POOL ? [title, ...rest] : rest;
-    });
+    const withoutTitle = (list: TitleCard[]) => list.filter((x) => x.id !== title.id);
+    setWant((prev) => (target === WANT ? [title, ...withoutTitle(prev)] : withoutTitle(prev)));
+    setPool((prev) => (target === POOL ? [title, ...withoutTitle(prev)] : withoutTitle(prev)));
     setSelected(null);
-    setEntry(title.id, target === POOL ? null : { tier: target }).catch(() => notify("Couldn't save, try again"));
+    const entry = target === POOL ? null : target === WANT ? { state: "want" as const } : { tier: target };
+    setEntry(title.id, entry).catch(() => notify("Couldn't save, try again"));
   };
 
   const dropProps = (target: Slot) =>
@@ -74,6 +80,7 @@ export default function TierBoard({ placed, pool: initialPool, editable, shareUr
         setSelected(selected?.id === title.id ? null : title);
       }}
     >
+      {title.cover && <Image className="card-cover" src={title.cover} alt="" width={20} height={28} />}
       {title.name}
     </span>
   );
@@ -84,7 +91,7 @@ export default function TierBoard({ placed, pool: initialPool, editable, shareUr
     if (value.trim().length < 2) return;
     const found = await search(value);
     if (latestQuery.current !== value) return;
-    const placedIds = new Set(Object.values(tiers).flat().map((t) => t.id));
+    const placedIds = new Set([...Object.values(tiers).flat(), ...want].map((t) => t.id));
     setPool((prev) => [...found.filter((t) => !placedIds.has(t.id)), ...prev.filter((p) => !found.some((f) => f.id === p.id))]);
   };
 
@@ -99,24 +106,40 @@ export default function TierBoard({ placed, pool: initialPool, editable, shareUr
 
   const markdown = () =>
     [
-      ...TIERS.map((t) => `**${t}:** ${tiers[t].map((x) => x.name).join(", ") || "—"}`),
-      `*Made with [${SITE_NAME}](${shareUrl ?? window.location.origin})*`,
+      ...TIERS.map((t) => `**${t}:** ${shown(tiers[t]).map((x) => x.name).join(", ") || "—"}`),
+      `*Made with [${SITE_NAME}](${filteredShareUrl ?? window.location.origin})*`,
     ].join("\n\n");
 
-  const hasPlaced = TIERS.some((t) => tiers[t].length);
+  const shown = (list: TitleCard[]) => (kind ? list.filter((t) => t.kind === kind) : list);
+  const kindsInUse = KINDS.filter((k) => [...Object.values(tiers).flat(), ...want, ...pool].some((t) => t.kind === k.value));
+  const hasPlaced = TIERS.some((t) => shown(tiers[t]).length);
+  const filteredShareUrl = shareUrl && kind ? `${shareUrl}?kind=${kind}` : shareUrl;
 
   return (
     <>
       {hasPlaced && (
         <div className="tierlist-actions">
-          {shareUrl && (
-            <button className="button primary" onClick={() => copy(shareUrl, "Link copied")}>
+          {filteredShareUrl && (
+            <button className="button primary" onClick={() => copy(filteredShareUrl, "Link copied")}>
               Copy share link
             </button>
           )}
           <button className="button" onClick={() => copy(markdown(), "Markdown copied")}>
             Copy for Reddit
           </button>
+        </div>
+      )}
+
+      {kindsInUse.length > 1 && (
+        <div className="chips board-filter">
+          <button className={kind ? "chip" : "chip active"} onClick={() => setKind(null)}>
+            All
+          </button>
+          {kindsInUse.map((k) => (
+            <button key={k.value} className={kind === k.value ? "chip active" : "chip"} onClick={() => setKind(kind === k.value ? null : k.value)}>
+              {k.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -127,26 +150,44 @@ export default function TierBoard({ placed, pool: initialPool, editable, shareUr
               {tier}
             </div>
             <div className={selected ? "tier-items target" : "tier-items"} {...dropProps(tier)}>
-              {tiers[tier].map(card)}
+              {shown(tiers[tier]).map(card)}
             </div>
           </div>
         ))}
       </div>
 
       {editable && (
-        <section className="pool-section">
-          <input
-            className="search"
-            type="search"
-            placeholder="Search a title to add…"
-            value={query}
-            onChange={(e) => onSearch(e.target.value)}
-          />
-          <p className="muted">Drag titles into a tier, or tap a title then tap a tier. Drop back here to remove.</p>
-          <div className="pool" {...dropProps(POOL)}>
-            {pool.map(card)}
-          </div>
-        </section>
+        <>
+          <p className="muted board-help">Drag a title into a tier, or tap it then tap a tier.</p>
+
+          <section className="pool-section">
+            <h2>
+              Want to read <span className="muted">({want.length})</span>
+            </h2>
+            <div className={selected ? "pool want target" : "pool want"} {...dropProps(WANT)}>
+              {want.length === 0 ? (
+                <span className="muted">Titles you mark &quot;Want to read&quot; land here, ready to rank once you&apos;ve read them.</span>
+              ) : (
+                shown(want).map(card)
+              )}
+            </div>
+          </section>
+
+          <section className="pool-section">
+            <h2>Add more titles</h2>
+            <input
+              className="search"
+              type="search"
+              placeholder="Search any title…"
+              value={query}
+              onChange={(e) => onSearch(e.target.value)}
+            />
+            <div className={selected ? "pool target" : "pool"} {...dropProps(POOL)}>
+              {shown(pool).map(card)}
+            </div>
+            <p className="muted">Drop a title back here to remove it from your list.</p>
+          </section>
+        </>
       )}
 
       {toast && <div className="toast">{toast}</div>}
