@@ -43,7 +43,6 @@ next-env.d.ts
 
 
 
-data/sync.log
+data/*.log
 data/cache/
-data/dev.log
 

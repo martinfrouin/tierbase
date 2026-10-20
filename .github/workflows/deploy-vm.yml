@@ -1,0 +1,53 @@
+name: Deploy VM
+
+# The site itself is deployed by Vercel's Git integration. This only ships Postgres and the sync worker
+# to the VM, in their own ~/tierbase folder and compose project, next to Popotheque.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "db/**"
+      - "data/*.json"
+      - "data/*.txt"
+      - "package.json"
+      - "package-lock.json"
+      - "Dockerfile"
+      - "compose.prod.yml"
+      - ".github/workflows/deploy-vm.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH key + known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # .env, certs/ and data/cache/ only live on the VM and are never touched
+      - name: Rsync to the VM
+        run: |
+          rsync -az --delete \
+            --include 'scripts/***' --include 'db/***' --include 'data/' --include 'data/*.json' --include 'data/*.txt' \
+            --include package.json --include package-lock.json --include Dockerfile --include compose.prod.yml \
+            --exclude '*' \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:tierbase/"
+
+      - name: Build & restart the stack on the VM
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'set -e; cd ~/tierbase && \
+             docker compose -f compose.prod.yml up --build -d && \
+             docker image prune -f'
