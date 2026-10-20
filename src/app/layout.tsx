@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Geist } from "next/font/google";
 import { cacheLife } from "next/cache";
@@ -32,8 +33,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={geist.variable}>
       <body>
         <header className="site-header">
-          <Link href="/" className="brand">
-            {SITE_NAME}
+          <Link href="/" className="brand" aria-label={SITE_NAME}>
+            <Image src="/emblem.png" alt="" width={40} height={40} priority />
+            <span>
+              Tier<span className="brand-gradient">Base</span>
+            </span>
           </Link>
           <nav>
             <Link href="/for-you">For you</Link>
