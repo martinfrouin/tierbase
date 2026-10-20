@@ -30,7 +30,15 @@ async function MyBoard() {
   return (
     <>
       {share && <ListName initial={share.listName} />}
-      <TierBoard placed={placed} wantToRead={wantToRead} pool={popular} editable shareUrl={shareUrl} />
+      <TierBoard
+        // The board keeps local state, and Next keeps visited pages mounted: remount it when the saved list changes
+        key={library.map((e) => `${e.title.id}:${e.tier ?? e.state}`).join(",")}
+        placed={placed}
+        wantToRead={wantToRead}
+        pool={popular}
+        editable
+        shareUrl={shareUrl}
+      />
     </>
   );
 }

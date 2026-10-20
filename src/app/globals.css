@@ -717,7 +717,7 @@ a.chip {
 }
 
 .nudge p {
-  margin: 6px 0 10px;
+  margin: 6px 0 0;
   font-size: 14px;
 }
 
@@ -726,18 +726,6 @@ a.chip {
   text-decoration: none;
 }
 
-.nudge-bar {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--border);
-  overflow: hidden;
-}
-
-.nudge-bar span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
 
 @media (max-width: 560px) {
   .nudge {

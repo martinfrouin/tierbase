@@ -7,17 +7,18 @@ import { setEntry } from "@/app/actions";
 import type { LibraryState, Tier } from "@/lib/data";
 
 type Choice = {
+  emoji: string;
   label: string;
   entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> };
 };
 
 const CHOICES: Choice[] = [
-  { label: "Loved it", entry: { tier: "S" } },
-  { label: "Liked it", entry: { tier: "A" } },
-  { label: "It was ok", entry: { tier: "C" } },
-  { label: "Didn't like it", entry: { tier: "D" } },
-  { label: "Want to read", entry: { state: "want" } },
-  { label: "Not for me", entry: { state: "skip" } },
+  { emoji: "⭐", label: "Loved it", entry: { tier: "S" } },
+  { emoji: "❤️", label: "Liked it", entry: { tier: "A" } },
+  { emoji: "👍", label: "It was ok", entry: { tier: "C" } },
+  { emoji: "👎", label: "Didn't like it", entry: { tier: "D" } },
+  { emoji: "🧐", label: "Want to read", entry: { state: "want" } },
+  { emoji: "🚫", label: "Not for me", entry: { state: "skip" } },
 ];
 
 interface Props {
@@ -48,7 +49,7 @@ export default function RateButtons({ titleId, current }: Props) {
             disabled={pending}
             onClick={() => choose(choice)}
           >
-            {choice.label}
+            <span aria-hidden>{choice.emoji}</span> {choice.label}
           </button>
         ))}
       </div>

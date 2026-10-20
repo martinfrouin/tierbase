@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { refresh, revalidatePath, updateTag } from "next/cache";
 import { sql } from "@/lib/db";
 import { ensureUserId } from "@/lib/user";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
@@ -24,6 +24,8 @@ export async function setEntry(
   updateTag(RATINGS_TAG);
   revalidatePath("/for-you");
   revalidatePath("/tierlist");
+  // Pages the visitor already opened (an empty tier list) would otherwise come back from the client cache
+  refresh();
 }
 
 export async function saveFavorites(titleIds: number[]) {
@@ -38,6 +40,7 @@ export async function saveFavorites(titleIds: number[]) {
   updateTag(RATINGS_TAG);
   revalidatePath("/for-you");
   revalidatePath("/tierlist");
+  refresh();
 }
 
 export async function search(query: string): Promise<TitleCard[]> {
