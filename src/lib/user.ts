@@ -24,7 +24,7 @@ export async function ensureUserId(): Promise<string> {
   return id;
 }
 
-export async function setUserCookie(id: string) {
+async function setUserCookie(id: string) {
   (await cookies()).set(COOKIE, id, {
     httpOnly: true,
     sameSite: "lax",

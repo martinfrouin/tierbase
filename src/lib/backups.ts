@@ -3,9 +3,8 @@ import { sql } from "@/lib/db";
 
 export interface Restore {
   token: string;
-  owner: string;
-  // null for the first restore links, which only reconnect the browser
-  entries: { titleId: number; tier: string | null; state: string }[] | null;
+  entries: { titleId: number; tier: string | null; state: string }[];
+  listName: string | null;
   savedAt: Date | null;
 }
 
@@ -32,33 +31,45 @@ export async function createBackup(userId: string): Promise<{ token: string; cou
 
 export async function findRestore(token: string): Promise<Restore | null> {
   if (!/^[\w-]{32,64}$/.test(token)) return null;
-  const [backup] = await sql`SELECT user_id, entries, created_at FROM backups WHERE token = ${token}`;
+  const [backup] = await sql`SELECT entries, list_name, created_at FROM backups WHERE token = ${token}`;
   if (backup) {
-    return { token, owner: String(backup.user_id), entries: backup.entries as Restore["entries"], savedAt: backup.created_at as Date };
+    return {
+      token,
+      entries: backup.entries as Restore["entries"],
+      listName: (backup.list_name as string | null) ?? null,
+      savedAt: backup.created_at as Date,
+    };
   }
-  const [user] = await sql`SELECT id FROM users WHERE restore_token = ${token}`;
-  return user ? { token, owner: String(user.id), entries: null, savedAt: null } : null;
+  // The first restore links pointed at an account: they copy its list as it is today
+  const [user] = await sql`SELECT id, list_name FROM users WHERE restore_token = ${token}`;
+  if (!user) return null;
+  const rows = await sql`SELECT title_id, tier, state FROM ratings WHERE user_id = ${user.id} ORDER BY updated_at`;
+  return {
+    token,
+    entries: rows.map((r) => ({ titleId: Number(r.title_id), tier: (r.tier as string | null) ?? null, state: String(r.state) })),
+    listName: (user.list_name as string | null) ?? null,
+    savedAt: null,
+  };
 }
 
-// True when the owner's list changed since the backup, so restoring would drop those changes
-export async function restoreOverwrites(restore: Restore): Promise<boolean> {
-  if (!restore.entries) return false;
-  const rows = await sql`SELECT title_id, tier, state FROM ratings WHERE user_id = ${restore.owner}`;
+// True when the reader's list holds something the restore would drop
+export async function restoreOverwrites(restore: Restore, userId: string): Promise<boolean> {
+  const rows = await sql`SELECT title_id, tier, state FROM ratings WHERE user_id = ${userId}`;
   const key = (id: unknown, tier: unknown, state: unknown) => `${id}:${tier ?? ""}:${state}`;
   const saved = new Set(restore.entries.map((e) => key(e.titleId, e.tier, e.state)));
   return rows.length > 0 && (rows.length !== saved.size || rows.some((r) => !saved.has(key(r.title_id, r.tier, r.state))));
 }
 
-export async function applyRestore(restore: Restore) {
-  if (!restore.entries) return;
+export async function applyRestore(restore: Restore, userId: string) {
   await sql.begin(async (tx) => {
-    await tx`DELETE FROM ratings WHERE user_id = ${restore.owner}`;
+    await tx`DELETE FROM ratings WHERE user_id = ${userId}`;
     await tx`
       INSERT INTO ratings (user_id, title_id, tier, state)
-      SELECT b.user_id, e."titleId", e.tier, e.state
-      FROM backups b, jsonb_to_recordset(b.entries) AS e("titleId" INTEGER, tier CHAR(1), state TEXT)
-      WHERE b.token = ${restore.token} AND EXISTS (SELECT 1 FROM titles t WHERE t.id = e."titleId")
+      SELECT ${userId}, e."titleId", e.tier, e.state
+      FROM jsonb_to_recordset(${tx.json(restore.entries)}::jsonb) AS e("titleId" INTEGER, tier CHAR(1), state TEXT)
+      WHERE EXISTS (SELECT 1 FROM titles t WHERE t.id = e."titleId")
+      ON CONFLICT DO NOTHING
     `;
-    await tx`UPDATE users u SET list_name = b.list_name FROM backups b WHERE b.token = ${restore.token} AND u.id = b.user_id`;
+    if (restore.listName) await tx`UPDATE users SET list_name = ${restore.listName} WHERE id = ${userId}`;
   });
 }

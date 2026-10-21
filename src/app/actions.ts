@@ -4,7 +4,7 @@ import { refresh, revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { applyRestore, createBackup, findRestore } from "@/lib/backups";
-import { ensureUserId, setUserCookie } from "@/lib/user";
+import { ensureUserId } from "@/lib/user";
 import { KINDS, type Kind } from "@/lib/kinds";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 
@@ -77,8 +77,7 @@ export async function saveBackup(): Promise<{ token: string; count: number }> {
 export async function restoreBackup(token: string) {
   const restore = await findRestore(token);
   if (!restore) redirect("/tierlist?restore=invalid");
-  await applyRestore(restore);
-  await setUserCookie(restore.owner);
+  await applyRestore(restore, await ensureUserId());
   updateTag(RATINGS_TAG);
   revalidatePath("/for-you");
   revalidatePath("/tierlist");
