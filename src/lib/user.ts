@@ -1,13 +1,16 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { sql } from "@/lib/db";
 
 const COOKIE = "pr_uid";
 
 export async function currentUserId(): Promise<string | null> {
   const id = (await cookies()).get(COOKIE)?.value;
-  return id && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+  after(() => sql`UPDATE users SET last_seen = now() WHERE id = ${id} AND last_seen < now() - interval '1 day'`);
+  return id;
 }
 
 // Only callable from Server Actions / Route Handlers, where cookies can be written

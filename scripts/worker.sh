@@ -7,5 +7,6 @@ while true; do
     npm run sync:catalog
   fi
   npm run sync:threads && npm run db:seed
+  npm run db:cleanup
   sleep 86400
 done
