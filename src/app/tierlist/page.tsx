@@ -44,12 +44,19 @@ async function MyBoard() {
   );
 }
 
-export default async function TierListPage({ searchParams }: { searchParams: Promise<{ restore?: string }> }) {
+async function RestoreNotice({ searchParams }: { searchParams: Promise<{ restore?: string }> }) {
   const { restore } = await searchParams;
+  if (restore === "ok") return <p className="notice">Welcome back: your tier list is restored on this browser.</p>;
+  if (restore === "invalid") return <p className="notice">This restore link doesn&apos;t match any tier list.</p>;
+  return null;
+}
+
+export default function TierListPage({ searchParams }: { searchParams: Promise<{ restore?: string }> }) {
   return (
     <>
-      {restore === "ok" && <p className="notice">Welcome back: your tier list is restored on this browser.</p>}
-      {restore === "invalid" && <p className="notice">This restore link doesn&apos;t match any tier list.</p>}
+      <Suspense>
+        <RestoreNotice searchParams={searchParams} />
+      </Suspense>
       <section className="hero">
         <h1>My tier list</h1>
         <p className="muted">
