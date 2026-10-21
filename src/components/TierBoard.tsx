@@ -59,9 +59,10 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
 
   const clear = async () => {
     setConfirmClear(false);
-    const cleared = TIERS.flatMap((t) => shown(tiers[t]));
+    const cleared = [...TIERS.flatMap((t) => shown(tiers[t])), ...shown(want)];
     const clearedIds = new Set(cleared.map((t) => t.id));
     setTiers((prev) => Object.fromEntries(TIERS.map((t) => [t, prev[t].filter((x) => !clearedIds.has(x.id))])) as Record<Tier, TitleCard[]>);
+    setWant((prev) => prev.filter((x) => !clearedIds.has(x.id)));
     setPool((prev) => [...cleared, ...prev]);
     try {
       await clearTiers(kind);
@@ -148,7 +149,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
             (confirmClear ? (
               <span className="clear-confirm">
                 <button className="button danger" onClick={clear}>
-                  Remove {TIERS.reduce((n, t) => n + shown(tiers[t]).length, 0)} ranked titles
+                  Remove {TIERS.reduce((n, t) => n + shown(tiers[t]).length, shown(want).length)} titles
                 </button>
                 <button className="button" onClick={() => setConfirmClear(false)}>
                   Cancel

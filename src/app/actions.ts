@@ -51,7 +51,7 @@ export async function clearTiers(kind: Kind | null) {
   if (kind && !KINDS.some((k) => k.value === kind)) throw new Error("Invalid kind");
   await sql`
     DELETE FROM ratings r USING titles t
-    WHERE r.title_id = t.id AND r.user_id = ${userId} AND r.state = 'rated' AND (${kind}::text IS NULL OR t.kind = ${kind})
+    WHERE r.title_id = t.id AND r.user_id = ${userId} AND r.state IN ('rated', 'want') AND (${kind}::text IS NULL OR t.kind = ${kind})
   `;
   updateTag(RATINGS_TAG);
   revalidatePath("/for-you");
