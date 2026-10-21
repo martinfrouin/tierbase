@@ -1,3 +1,6 @@
+-- Runs while the site is live: give up rather than queue every page behind a lock held by a stuck connection
+SET lock_timeout = '10s';
+
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE IF NOT EXISTS titles (
@@ -51,16 +54,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS restore_token TEXT UNIQUE;
 -- A copy of a tier list, brought back by its private restore link
 CREATE TABLE IF NOT EXISTS backups (
   token TEXT PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- Restore links outlive the account that made them
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   list_name TEXT,
   entries JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS backups_user ON backups(user_id);
--- Restore links outlive the account that made them
-ALTER TABLE backups ALTER COLUMN user_id DROP NOT NULL;
-ALTER TABLE backups DROP CONSTRAINT IF EXISTS backups_user_id_fkey;
-ALTER TABLE backups ADD CONSTRAINT backups_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- Lets the daily cleanup drop accounts no browser can reach anymore
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ NOT NULL DEFAULT now();
