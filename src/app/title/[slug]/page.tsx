@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
+import Synopsis from "@/components/Synopsis";
 import RateButtons from "@/components/RateButtons";
 import { getEntry, getQuotes, getTitle, KINDS, scoreOutOf100, similarTitles, TIERS } from "@/lib/data";
 import { currentUserId } from "@/lib/user";
@@ -51,6 +52,7 @@ async function TitleContent({ params }: { params: Promise<{ slug: string }> }) {
             </p>
           )}
           {title.genres.length > 0 && <p className="muted">{title.genres.join(" · ")}</p>}
+          {title.description && <Synopsis text={title.description} />}
           {title.url && (
             <a href={title.url} target="_blank" rel="noreferrer" className="muted">
               More info ↗

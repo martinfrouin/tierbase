@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS titles (
   popularity INTEGER NOT NULL DEFAULT 0
 );
 ALTER TABLE titles ADD COLUMN IF NOT EXISTS native TEXT;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS description TEXT;
 CREATE INDEX IF NOT EXISTS titles_search ON titles USING gin (search gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS threads (

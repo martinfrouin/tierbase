@@ -38,6 +38,7 @@ export interface RankedTitle extends TitleCard {
 export interface TitleDetail extends RankedTitle {
   romaji: string | null;
   native: string | null;
+  description: string | null;
   tierCounts: Record<Tier, number>;
   status: string | null;
   genres: string[];
@@ -150,6 +151,7 @@ export async function getTitle(slug: string): Promise<TitleDetail | null> {
     tierCounts,
     romaji: row.romaji as string | null,
     native: row.native as string | null,
+    description: row.description as string | null,
     status: row.status as string | null,
     genres: row.genres as string[],
     url: String(row.url),

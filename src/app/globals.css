@@ -893,3 +893,31 @@ a.chip {
   font-weight: 700;
   text-align: center;
 }
+
+.synopsis {
+  margin: 12px 0;
+  max-width: 640px;
+}
+
+.synopsis p {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.synopsis .clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-button {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+}

@@ -15,6 +15,7 @@ const query = (withCountry: boolean) => `query ($page: Int${withCountry ? ", $co
       id
       isAdult
       title { romaji english native }
+      description(asHtml: false)
       synonyms
       countryOfOrigin
       format
@@ -31,6 +32,7 @@ interface Media {
   id: number;
   isAdult: boolean;
   title: { romaji: string | null; english: string | null; native: string | null };
+  description: string | null;
   synonyms: string[];
   countryOfOrigin: string;
   format: string;
@@ -61,6 +63,7 @@ for (const country of COUNTRIES) {
         name: m.title.english ?? m.title.romaji,
         romaji: m.title.romaji,
         native: m.title.native,
+        description: m.description,
         synonyms: m.synonyms,
         origin: m.countryOfOrigin,
         format: m.format,

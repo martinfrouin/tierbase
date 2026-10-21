@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import postgres from "postgres";
+import { cleanDescription } from "./lib/description.ts";
 import { TitleMatcher, normalize } from "./lib/matcher.ts";
 import { isRecommendationThread } from "./lib/threads.ts";
 
@@ -10,6 +11,7 @@ interface CatalogEntry {
   name: string;
   romaji: string | null;
   native?: string | null;
+  description?: string | null;
   synonyms: string[];
   origin: string;
   format: string;
@@ -108,6 +110,7 @@ const titleRows = [...catalog]
       name: displayName(t),
       romaji: t.romaji,
       native: t.native ?? null,
+      description: cleanDescription(t.description),
       search: [t.name, t.romaji, ...t.synonyms].filter((n): n is string => !!n && LATIN.test(n)).map(normalize).join(" | "),
       kind: kind(t),
       origin: t.origin,
@@ -123,6 +126,7 @@ for (let i = 0; i < titleRows.length; i += CHUNK) {
   await sql`
     INSERT INTO titles ${sql(titleRows.slice(i, i + CHUNK))}
     ON CONFLICT (id) DO UPDATE SET name = excluded.name, romaji = excluded.romaji, native = excluded.native,
+      description = excluded.description,
       search = excluded.search, kind = excluded.kind, origin = excluded.origin, status = excluded.status,
       genres = excluded.genres, cover = excluded.cover, url = excluded.url, popularity = excluded.popularity
   `;
