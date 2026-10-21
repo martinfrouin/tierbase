@@ -45,8 +45,18 @@ CREATE TABLE IF NOT EXISTS users (
 );
 -- Shown as the title of the shared tier list
 ALTER TABLE users ADD COLUMN IF NOT EXISTS list_name TEXT;
--- Secret for the private link that brings the list back on another browser
+-- Secret of the first restore links, which only reconnected a browser to its list
 ALTER TABLE users ADD COLUMN IF NOT EXISTS restore_token TEXT UNIQUE;
+
+-- A copy of a tier list, brought back by its private restore link
+CREATE TABLE IF NOT EXISTS backups (
+  token TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  list_name TEXT,
+  entries JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS backups_user ON backups(user_id);
 
 -- tier: S..D, or NULL for "want to read" / "not interested" entries
 CREATE TABLE IF NOT EXISTS ratings (

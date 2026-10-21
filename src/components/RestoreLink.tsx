@@ -1,31 +1,38 @@
 "use client";
 
 import { useState } from "react";
+import { saveBackup } from "@/app/actions";
 
-export default function RestoreLink({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false);
+export default function RestoreLink() {
+  const [status, setStatus] = useState<string | null>(null);
 
   const copy = async () => {
+    setStatus(null);
+    const pending = saveBackup().then(({ token, count }) => ({ url: `${window.location.origin}/restore/${token}`, count }));
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {}
+      // Safari only allows writing to the clipboard within the click, so hand it the pending link
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/plain": pending.then(({ url }) => new Blob([url], { type: "text/plain" })) }),
+      ]);
+      const { count } = await pending;
+      setStatus(`Link copied: it brings back your ${count} titles as they are now.`);
+    } catch {
+      setStatus("Couldn't copy the link, try again.");
+    }
   };
 
   return (
     <section className="pool-section restore">
       <h2>Keep your tier list</h2>
       <p className="muted">
-        Your list is tied to this browser. Save this private link to open the same list on another device or after
-        clearing your cookies, even months from now. Don&apos;t share it: anyone with it can edit your list.
+        Save a private link to your list as it is now. Open it any time, even months from now, after clearing your
+        cookies or on another device, to get this list back. Don&apos;t share it: anyone with it can restore and edit
+        your list.
       </p>
-      <div className="restore-row">
-        <input className="list-name-input restore-input" readOnly value={url} onFocus={(e) => e.currentTarget.select()} />
-        <button className="button" onClick={copy}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
+      <button className="button primary" onClick={copy}>
+        Copy restore link
+      </button>
+      {status && <p className="muted">{status}</p>}
     </section>
   );
 }

@@ -3,7 +3,8 @@
 import { refresh, revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
-import { ensureUserId, setUserCookie, userIdByRestoreToken } from "@/lib/user";
+import { applyRestore, createBackup, findRestore } from "@/lib/backups";
+import { ensureUserId, setUserCookie } from "@/lib/user";
 import { KINDS, type Kind } from "@/lib/kinds";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 
@@ -69,9 +70,17 @@ export async function setListName(name: string) {
   revalidatePath("/tierlist");
 }
 
-export async function switchToList(token: string) {
-  const userId = await userIdByRestoreToken(token);
-  if (!userId) redirect("/tierlist?restore=invalid");
-  await setUserCookie(userId);
+export async function saveBackup(): Promise<{ token: string; count: number }> {
+  return createBackup(await ensureUserId());
+}
+
+export async function restoreBackup(token: string) {
+  const restore = await findRestore(token);
+  if (!restore) redirect("/tierlist?restore=invalid");
+  await applyRestore(restore);
+  await setUserCookie(restore.owner);
+  updateTag(RATINGS_TAG);
+  revalidatePath("/for-you");
+  revalidatePath("/tierlist");
   redirect("/tierlist?restore=ok");
 }

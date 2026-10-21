@@ -6,7 +6,7 @@ import ListName from "@/components/ListName";
 import RestoreLink from "@/components/RestoreLink";
 import TierBoard from "@/components/TierBoard";
 import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
-import { currentUserId, getRestoreToken } from "@/lib/user";
+import { currentUserId } from "@/lib/user";
 
 export const metadata: Metadata = { title: "My tier list" };
 
@@ -23,9 +23,10 @@ async function MyBoard() {
 
   const share = userId ? await getShareInfo(userId) : null;
   const host = (await headers()).get("host");
-  const origin = host ? `${host.startsWith("localhost") ? "http" : "https"}://${host}` : null;
-  const shareUrl = share && origin ? `${origin}/tierlist/${share.shareId}` : undefined;
-  const restoreToken = userId && library.length && origin ? await getRestoreToken(userId) : null;
+  const shareUrl =
+    share && host
+      ? `${host.startsWith("localhost") ? "http" : "https"}://${host}/tierlist/${share.shareId}`
+      : undefined;
 
   return (
     <>
@@ -39,7 +40,7 @@ async function MyBoard() {
         editable
         shareUrl={shareUrl}
       />
-      {restoreToken && <RestoreLink url={`${origin}/restore/${restoreToken}`} />}
+      {library.length > 0 && <RestoreLink />}
     </>
   );
 }

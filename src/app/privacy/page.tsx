@@ -26,6 +26,10 @@ export default function PrivacyPage() {
           <strong>Your tier list name</strong>, if you set one. It is public to anyone you share your link with.
         </li>
         <li>
+          <strong>Restore links</strong> you create: a copy of your list at that moment, kept until you make 20 newer
+          ones.
+        </li>
+        <li>
           <strong>Technical logs</strong> (IP address, requests) kept by the hosts for security and debugging.
         </li>
       </ul>
