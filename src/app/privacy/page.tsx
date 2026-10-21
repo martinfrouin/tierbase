@@ -55,7 +55,7 @@ export default function PrivacyPage() {
       <p>
         You can ask to see or delete your data at any time: send your tier list share link to{" "}
         <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Clearing your cookies also disconnects you from your
-        list. You can also file a complaint with the CNIL (cnil.fr).
+        list, unless you saved its private restore link. You can also file a complaint with the CNIL (cnil.fr).
       </p>
 
       <p>

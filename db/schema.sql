@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 -- Shown as the title of the shared tier list
 ALTER TABLE users ADD COLUMN IF NOT EXISTS list_name TEXT;
+-- Secret for the private link that brings the list back on another browser
+ALTER TABLE users ADD COLUMN IF NOT EXISTS restore_token TEXT UNIQUE;
 
 -- tier: S..D, or NULL for "want to read" / "not interested" entries
 CREATE TABLE IF NOT EXISTS ratings (

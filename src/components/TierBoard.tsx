@@ -3,7 +3,7 @@
 import { track } from "@vercel/analytics";
 import Image from "next/image";
 import { useRef, useState } from "react";
-import { search, setEntry } from "@/app/actions";
+import { clearTiers, search, setEntry } from "@/app/actions";
 import type { TitleCard, Tier } from "@/lib/data";
 import { KINDS, type Kind } from "@/lib/kinds";
 import { SITE_NAME } from "@/lib/site";
@@ -32,6 +32,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
   const [selected, setSelected] = useState<TitleCard | null>(null);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Kind | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const latestQuery = useRef("");
 
@@ -54,6 +55,20 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
     setSelected(null);
     const entry = target === POOL ? null : target === WANT ? { state: "want" as const } : { tier: target };
     setEntry(title.id, entry).catch(() => notify("Couldn't save, try again"));
+  };
+
+  const clear = async () => {
+    setConfirmClear(false);
+    const cleared = TIERS.flatMap((t) => shown(tiers[t]));
+    const clearedIds = new Set(cleared.map((t) => t.id));
+    setTiers((prev) => Object.fromEntries(TIERS.map((t) => [t, prev[t].filter((x) => !clearedIds.has(x.id))])) as Record<Tier, TitleCard[]>);
+    setPool((prev) => [...cleared, ...prev]);
+    try {
+      await clearTiers(kind);
+      track("Tier list cleared", { kind: kind ?? "all" });
+    } catch {
+      notify("Couldn't clear, try again");
+    }
   };
 
   const dropProps = (target: Slot) =>
@@ -129,6 +144,21 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
           <button className="button" onClick={() => copy(markdown(), "Markdown copied", "Reddit markdown copied")}>
             Copy for Reddit
           </button>
+          {editable &&
+            (confirmClear ? (
+              <span className="clear-confirm">
+                <button className="button danger" onClick={clear}>
+                  Remove {TIERS.reduce((n, t) => n + shown(tiers[t]).length, 0)} ranked titles
+                </button>
+                <button className="button" onClick={() => setConfirmClear(false)}>
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button className="button clear-button" onClick={() => setConfirmClear(true)}>
+                {kind ? `Clear ${KINDS.find((k) => k.value === kind)?.label} tiers` : "Clear tier list"}
+              </button>
+            ))}
         </div>
       )}
 

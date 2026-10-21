@@ -20,6 +20,11 @@ export async function ensureUserId(): Promise<string> {
 
   const id = randomUUID();
   await sql`INSERT INTO users (id, share_id) VALUES (${id}, ${randomBytes(6).toString("base64url")})`;
+  await setUserCookie(id);
+  return id;
+}
+
+export async function setUserCookie(id: string) {
   (await cookies()).set(COOKIE, id, {
     httpOnly: true,
     sameSite: "lax",
@@ -27,5 +32,18 @@ export async function ensureUserId(): Promise<string> {
     maxAge: 60 * 60 * 24 * 365 * 2,
     path: "/",
   });
-  return id;
+}
+
+export async function getRestoreToken(userId: string): Promise<string | null> {
+  const [row] = await sql`
+    UPDATE users SET restore_token = COALESCE(restore_token, ${randomBytes(24).toString("base64url")})
+    WHERE id = ${userId} RETURNING restore_token
+  `;
+  return row ? String(row.restore_token) : null;
+}
+
+export async function userIdByRestoreToken(token: string): Promise<string | null> {
+  if (!/^[\w-]{32}$/.test(token)) return null;
+  const [row] = await sql`SELECT id FROM users WHERE restore_token = ${token}`;
+  return row ? String(row.id) : null;
 }

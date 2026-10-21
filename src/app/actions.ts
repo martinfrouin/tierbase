@@ -3,6 +3,7 @@
 import { refresh, revalidatePath, updateTag } from "next/cache";
 import { sql } from "@/lib/db";
 import { ensureUserId } from "@/lib/user";
+import { KINDS, type Kind } from "@/lib/kinds";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 
 export async function setEntry(
@@ -37,6 +38,19 @@ export async function saveFavorites(titleIds: number[]) {
       ON CONFLICT (user_id, title_id) DO UPDATE SET tier = 'S', state = 'rated', updated_at = now() WHERE ratings.tier IS NULL
     `;
   }
+  updateTag(RATINGS_TAG);
+  revalidatePath("/for-you");
+  revalidatePath("/tierlist");
+  refresh();
+}
+
+export async function clearTiers(kind: Kind | null) {
+  const userId = await ensureUserId();
+  if (kind && !KINDS.some((k) => k.value === kind)) throw new Error("Invalid kind");
+  await sql`
+    DELETE FROM ratings r USING titles t
+    WHERE r.title_id = t.id AND r.user_id = ${userId} AND r.state = 'rated' AND (${kind}::text IS NULL OR t.kind = ${kind})
+  `;
   updateTag(RATINGS_TAG);
   revalidatePath("/for-you");
   revalidatePath("/tierlist");

@@ -3,9 +3,10 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { Suspense } from "react";
 import ListName from "@/components/ListName";
+import RestoreLink from "@/components/RestoreLink";
 import TierBoard from "@/components/TierBoard";
 import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
-import { currentUserId } from "@/lib/user";
+import { currentUserId, getRestoreToken } from "@/lib/user";
 
 export const metadata: Metadata = { title: "My tier list" };
 
@@ -22,10 +23,9 @@ async function MyBoard() {
 
   const share = userId ? await getShareInfo(userId) : null;
   const host = (await headers()).get("host");
-  const shareUrl =
-    share && host
-      ? `${host.startsWith("localhost") ? "http" : "https"}://${host}/tierlist/${share.shareId}`
-      : undefined;
+  const origin = host ? `${host.startsWith("localhost") ? "http" : "https"}://${host}` : null;
+  const shareUrl = share && origin ? `${origin}/tierlist/${share.shareId}` : undefined;
+  const restoreToken = userId && library.length && origin ? await getRestoreToken(userId) : null;
 
   return (
     <>
@@ -39,13 +39,17 @@ async function MyBoard() {
         editable
         shareUrl={shareUrl}
       />
+      {restoreToken && <RestoreLink url={`${origin}/restore/${restoreToken}`} />}
     </>
   );
 }
 
-export default function TierListPage() {
+export default async function TierListPage({ searchParams }: { searchParams: Promise<{ restore?: string }> }) {
+  const { restore } = await searchParams;
   return (
     <>
+      {restore === "ok" && <p className="notice">Welcome back: your tier list is restored on this browser.</p>}
+      {restore === "invalid" && <p className="notice">This restore link doesn&apos;t match any tier list.</p>}
       <section className="hero">
         <h1>My tier list</h1>
         <p className="muted">
