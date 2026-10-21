@@ -26,8 +26,7 @@ export default function RestoreLink() {
       <h2>Keep your tier list</h2>
       <p className="muted">
         Save a private link to your list as it is now. Open it any time, even months from now, after clearing your
-        cookies or on another device, to get this list back. The link only holds a copy: nobody can edit your list
-        with it.
+        cookies or on another device, to get this list back.
       </p>
       <button className="button primary" onClick={copy}>
         Copy restore link
