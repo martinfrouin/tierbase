@@ -36,14 +36,14 @@ export async function setUserCookie(id: string) {
 
 export async function getRestoreToken(userId: string): Promise<string | null> {
   const [row] = await sql`
-    UPDATE users SET restore_token = COALESCE(restore_token, ${randomBytes(24).toString("base64url")})
+    UPDATE users SET restore_token = COALESCE(restore_token, replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''))
     WHERE id = ${userId} RETURNING restore_token
   `;
   return row ? String(row.restore_token) : null;
 }
 
 export async function userIdByRestoreToken(token: string): Promise<string | null> {
-  if (!/^[\w-]{32}$/.test(token)) return null;
+  if (!/^[\w-]{32,64}$/.test(token)) return null;
   const [row] = await sql`SELECT id FROM users WHERE restore_token = ${token}`;
   return row ? String(row.id) : null;
 }

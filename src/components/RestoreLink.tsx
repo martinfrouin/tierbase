@@ -17,8 +17,8 @@ export default function RestoreLink({ url }: { url: string }) {
     <section className="pool-section restore">
       <h2>Keep your tier list</h2>
       <p className="muted">
-        Your list is tied to this browser. Save this private link to get it back on another device or after clearing
-        your cookies. Don&apos;t share it: anyone with it can edit your list.
+        Your list is tied to this browser. Save this private link to open the same list on another device or after
+        clearing your cookies, even months from now. Don&apos;t share it: anyone with it can edit your list.
       </p>
       <div className="restore-row">
         <input className="list-name-input restore-input" readOnly value={url} onFocus={(e) => e.currentTarget.select()} />

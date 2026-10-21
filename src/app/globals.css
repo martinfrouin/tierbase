@@ -274,6 +274,11 @@ blockquote footer {
   background: var(--surface);
 }
 
+a.button {
+  color: inherit;
+  text-decoration: none;
+}
+
 .button:disabled {
   opacity: 0.4;
   cursor: not-allowed;

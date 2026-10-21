@@ -1,8 +1,9 @@
 "use server";
 
 import { refresh, revalidatePath, updateTag } from "next/cache";
+import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
-import { ensureUserId } from "@/lib/user";
+import { ensureUserId, setUserCookie, userIdByRestoreToken } from "@/lib/user";
 import { KINDS, type Kind } from "@/lib/kinds";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 
@@ -66,4 +67,11 @@ export async function setListName(name: string) {
   const cleaned = name.trim().slice(0, 60) || null;
   await sql`UPDATE users SET list_name = ${cleaned} WHERE id = ${userId}`;
   revalidatePath("/tierlist");
+}
+
+export async function switchToList(token: string) {
+  const userId = await userIdByRestoreToken(token);
+  if (!userId) redirect("/tierlist?restore=invalid");
+  await setUserCookie(userId);
+  redirect("/tierlist?restore=ok");
 }
