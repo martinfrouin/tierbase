@@ -38,5 +38,29 @@
     "popularity": 40000,
     "url": "https://www.viz.com/dragon-ball-z",
     "cover": "/covers/dragon-ball-z.jpg"
+  },
+  {
+    "id": 181196,
+    "name": "The Ice-Core Meteoria",
+    "romaji": "Hyoukaku no Meteoria",
+    "native": "氷核のメテオリア",
+    "description": "In a world where a special fossil fuel known as Meteorian coal has become the number one source of fuel, steam engines have taken the world by storm. Kanata, a young coal miner, diligently studies despite his dire circumstances. One day, while breaking into a new vein of ore, Kanata finds the gears of fate have begun to turn for him—as he learns the monstrous secret of Meteoria!\n<br><br>\n(Source: Yen Press)",
+    "synonyms": [
+      "Meteoria",
+      "Meteoria of the Ice Core"
+    ],
+    "origin": "JP",
+    "format": "MANGA",
+    "status": "RELEASING",
+    "genres": [
+      "Action",
+      "Adventure",
+      "Fantasy",
+      "Romance",
+      "Sci-Fi"
+    ],
+    "popularity": 1297,
+    "url": "https://anilist.co/manga/181196",
+    "cover": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx181196-28wj0UqzYf9o.jpg"
   }
 ]
