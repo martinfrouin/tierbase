@@ -7,7 +7,7 @@ import { parseKind } from "@/lib/kinds";
 
 // "Best manhwa" is the search people make: each kind filter gets its own title and canonical URL
 function heading(kind: Kind | undefined) {
-  return kind ? `Best ${kind} ranked by Reddit readers` : "Best manhwa, manga and manhua ranked by Reddit readers";
+  return kind ? `Best ${kind}` : "Best manhwa, manga & manhua";
 }
 
 export async function generateMetadata({ searchParams }: PageProps<"/ranking">): Promise<Metadata> {
