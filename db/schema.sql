@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
   share_id TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Shown as the title of the shared tier list
+-- Former tier list title, no longer set or shown
 ALTER TABLE users ADD COLUMN IF NOT EXISTS list_name TEXT;
 -- Secret of the first restore links, which only reconnected a browser to its list
 ALTER TABLE users ADD COLUMN IF NOT EXISTS restore_token TEXT UNIQUE;

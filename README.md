@@ -41,7 +41,7 @@ Postgres, in Docker locally (`docker-compose.yml`). Schema in `db/schema.sql`.
 ssh <vm> 'cd ~/tierbase && docker compose -f compose.prod.yml exec -T worker npm run --silent stats'
 ```
 
-Visits come from Vercel Web Analytics (cookieless), with custom events for picking favorites and copying a share link or Reddit markdown.
+Visits come from Vercel Web Analytics (cookieless), with custom events for picking favorites and copying a share link or downloading the tier list image.
 
 ## Support
 

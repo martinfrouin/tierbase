@@ -3,8 +3,25 @@ import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
 import { getRanking, KINDS, scoreOutOf100, type Kind } from "@/lib/data";
+import { parseKind } from "@/lib/kinds";
 
-export const metadata: Metadata = { title: "Ranking" };
+// "Best manhwa" is the search people make: each kind filter gets its own title and canonical URL
+function heading(kind: Kind | undefined) {
+  return kind ? `Best ${kind} ranked by Reddit readers` : "Best manhwa, manga and manhua ranked by Reddit readers";
+}
+
+export async function generateMetadata({ searchParams }: PageProps<"/ranking">): Promise<Metadata> {
+  const kind = parseKind((await searchParams).kind as string | undefined) ?? undefined;
+  return {
+    title: heading(kind),
+    description: `The ${kind ?? "manhwa, manga and manhua"} Reddit recommends most, refined by TierBase readers' tier lists. Scores out of 100.`,
+    alternates: { canonical: kind ? `/ranking?kind=${kind}` : "/ranking" },
+  };
+}
+
+async function Heading({ searchParams }: { searchParams: Promise<Params> }) {
+  return <h1>{heading(parseKind((await searchParams).kind) ?? undefined)}</h1>;
+}
 
 const PAGE_SIZE = 50;
 
@@ -92,7 +109,9 @@ export default function RankingPage({ searchParams }: PageProps<"/ranking">) {
   return (
     <>
       <section className="hero">
-        <h1>Ranking</h1>
+        <Suspense fallback={<h1>{heading(undefined)}</h1>}>
+          <Heading searchParams={searchParams as Promise<Params>} />
+        </Suspense>
         <p className="muted">
           Every title starts from how often Reddit recommends it, then moves with the tier lists people build here. Scores
           are out of 100.

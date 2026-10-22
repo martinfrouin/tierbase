@@ -63,13 +63,6 @@ export async function search(query: string): Promise<TitleCard[]> {
   return searchTitles(query.slice(0, 80));
 }
 
-export async function setListName(name: string) {
-  const userId = await ensureUserId();
-  const cleaned = name.trim().slice(0, 60) || null;
-  await sql`UPDATE users SET list_name = ${cleaned} WHERE id = ${userId}`;
-  revalidatePath("/tierlist");
-}
-
 export async function saveBackup(): Promise<{ token: string; count: number }> {
   return createBackup(await ensureUserId());
 }

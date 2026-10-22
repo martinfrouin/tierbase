@@ -10,11 +10,16 @@ import { currentUserId } from "@/lib/user";
 const DEFAULT_NAME = "A reader's tier list";
 
 export async function generateMetadata({ params }: PageProps<"/tierlist/[shareId]">): Promise<Metadata> {
-  const owner = await getUserByShareId((await params).shareId);
-  const name = owner?.listName ?? DEFAULT_NAME;
+  const { shareId } = await params;
+  const name = DEFAULT_NAME;
+  const description = "See how this reader ranks their manga, manhwa and manhua, then make your own tier list.";
   return {
     title: name,
-    openGraph: { title: name, description: "See how this reader ranks their manga, manhwa and manhua." },
+    description,
+    robots: { index: false, follow: true },
+    alternates: { canonical: `/tierlist/${shareId}` },
+    openGraph: { title: name, description },
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -72,7 +77,7 @@ async function SharedList({
   return (
     <>
       <section className="hero">
-        <h1>{owner.listName ?? DEFAULT_NAME}</h1>
+        <h1>{DEFAULT_NAME}</h1>
         <p className="muted">{shown.length} titles ranked</p>
         <Suspense fallback={<p className="match" />}>
           <Match list={list} ownerId={owner.id} />

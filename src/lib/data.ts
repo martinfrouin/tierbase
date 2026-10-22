@@ -286,14 +286,14 @@ export async function getLibrary(userId: string): Promise<LibraryEntry[]> {
   return rows.map((r) => ({ title: toCard(r), tier: (r.tier as Tier | null) ?? null, state: r.state as LibraryState }));
 }
 
-export async function getUserByShareId(shareId: string): Promise<{ id: string; listName: string | null } | null> {
-  const [row] = await sql`SELECT id, list_name FROM users WHERE share_id = ${shareId}`;
-  return row ? { id: String(row.id), listName: (row.list_name as string | null) ?? null } : null;
+export async function getUserByShareId(shareId: string): Promise<{ id: string } | null> {
+  const [row] = await sql`SELECT id FROM users WHERE share_id = ${shareId}`;
+  return row ? { id: String(row.id) } : null;
 }
 
-export async function getShareInfo(userId: string): Promise<{ shareId: string; listName: string | null } | null> {
-  const [row] = await sql`SELECT share_id, list_name FROM users WHERE id = ${userId}`;
-  return row ? { shareId: String(row.share_id), listName: (row.list_name as string | null) ?? null } : null;
+export async function getShareInfo(userId: string): Promise<{ shareId: string } | null> {
+  const [row] = await sql`SELECT share_id FROM users WHERE id = ${userId}`;
+  return row ? { shareId: String(row.share_id) } : null;
 }
 
 // Share of common titles both readers rated, weighted by how close their tiers are (same tier = 100%)

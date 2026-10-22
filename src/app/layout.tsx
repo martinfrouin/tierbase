@@ -5,12 +5,15 @@ import Link from "next/link";
 import { Geist } from "next/font/google";
 import { cacheLife } from "next/cache";
 import { sql } from "@/lib/db";
-import { REPO_URL, SITE_NAME, SPONSOR_URL } from "@/lib/site";
+import { REPO_URL, SITE_NAME, SITE_URL, SPONSOR_URL } from "@/lib/site";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  openGraph: { siteName: SITE_NAME, type: "website" },
+  twitter: { card: "summary_large_image" },
   title: {
     default: `${SITE_NAME} — find your next manhwa, manga or manhua`,
     template: `%s · ${SITE_NAME}`,

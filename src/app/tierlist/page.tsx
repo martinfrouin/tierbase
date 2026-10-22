@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { Suspense } from "react";
-import ListName from "@/components/ListName";
 import RestoreLink from "@/components/RestoreLink";
 import TierBoard from "@/components/TierBoard";
 import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
@@ -30,7 +29,6 @@ async function MyBoard() {
 
   return (
     <>
-      {share && <ListName initial={share.listName} />}
       <TierBoard
         // The board keeps local state, and Next keeps visited pages mounted: remount it when the saved list changes
         key={library.map((e) => `${e.title.id}:${e.tier ?? e.state}`).join(",")}
@@ -62,8 +60,8 @@ export default function TierListPage({ searchParams }: { searchParams: Promise<{
         <h1>My tier list</h1>
         <p className="muted">
           This is what your recommendations are built on: the more titles you rank, the better they get. Drag in what
-          you&apos;ve read, then <Link href="/for-you">see your recommendations</Link>. You can also share it or paste
-          it on Reddit.
+          you&apos;ve read, then <Link href="/for-you">see your recommendations</Link>. You can also share it as a link
+          or an image.
         </p>
       </section>
       <Suspense fallback={<p className="muted">Loading your tier list…</p>}>

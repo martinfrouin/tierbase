@@ -284,6 +284,29 @@ a.button {
   cursor: not-allowed;
 }
 
+.button[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 4px;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .clear-button,
 .clear-confirm {
   margin-left: auto;
@@ -613,25 +636,6 @@ a.chip {
 .pool-section .search {
   width: 100%;
   margin-bottom: 10px;
-}
-
-.list-name {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 420px;
-  margin-bottom: 16px;
-  font-size: 14px;
-}
-
-.list-name-input {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 16px;
 }
 
 .notice {

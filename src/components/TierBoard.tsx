@@ -6,7 +6,6 @@ import { useRef, useState } from "react";
 import { clearTiers, search, setEntry } from "@/app/actions";
 import type { TitleCard, Tier } from "@/lib/data";
 import { KINDS, type Kind } from "@/lib/kinds";
-import { SITE_NAME } from "@/lib/site";
 
 const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
 const POOL = "pool";
@@ -34,6 +33,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
   const [kind, setKind] = useState<Kind | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
   const latestQuery = useRef("");
 
   const notify = (message: string) => {
@@ -122,11 +122,26 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
     }
   };
 
-  const markdown = () =>
-    [
-      ...TIERS.map((t) => `**${t}:** ${shown(tiers[t]).map((x) => x.name).join(", ") || "—"}`),
-      `*Made with [${SITE_NAME}](${filteredShareUrl ?? window.location.origin})*`,
-    ].join("\n\n");
+  // Fetched rather than linked so the button can show progress: rendering every cover takes a few seconds
+  const downloadImage = async () => {
+    if (!shareUrl) return;
+    setGenerating(true);
+    try {
+      const response = await fetch(`${shareUrl}/image${kind ? `?kind=${kind}` : ""}`);
+      if (!response.ok) throw new Error(String(response.status));
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "tier-list.png";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      track("Image downloaded", { kind: kind ?? "all" });
+    } catch {
+      notify("Couldn't generate the image");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const shown = (list: TitleCard[]) => (kind ? list.filter((t) => t.kind === kind) : list);
   const kindsInUse = KINDS.filter((k) => [...Object.values(tiers).flat(), ...want, ...pool].some((t) => t.kind === k.value));
@@ -142,9 +157,17 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
               Copy share link
             </button>
           )}
-          <button className="button" onClick={() => copy(markdown(), "Markdown copied", "Reddit markdown copied")}>
-            Copy for Reddit
-          </button>
+          {shareUrl && (
+            <button className="button" onClick={downloadImage} disabled={generating} aria-busy={generating}>
+              {generating ? (
+                <>
+                  <span className="spinner" aria-hidden /> Generating image…
+                </>
+              ) : (
+                "Download image"
+              )}
+            </button>
+          )}
           {editable &&
             (confirmClear ? (
               <span className="clear-confirm">

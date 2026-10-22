@@ -4,14 +4,13 @@ const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
 
 const [totals] = await sql`
   WITH per_user AS (
-    SELECT u.id, u.list_name, COUNT(r.title_id) FILTER (WHERE r.tier IS NOT NULL) AS ranked, COUNT(r.title_id) AS entries
+    SELECT u.id, COUNT(r.title_id) FILTER (WHERE r.tier IS NOT NULL) AS ranked, COUNT(r.title_id) AS entries
     FROM users u LEFT JOIN ratings r ON r.user_id = u.id GROUP BY u.id
   )
   SELECT
     COUNT(*) FILTER (WHERE entries > 0)::int AS "visitors who rated",
     COUNT(*) FILTER (WHERE ranked >= 3)::int AS "tier lists (3+ titles)",
     COUNT(*) FILTER (WHERE ranked >= 10)::int AS "tier lists (10+ titles)",
-    COUNT(*) FILTER (WHERE list_name IS NOT NULL)::int AS "named lists",
     COALESCE(SUM(entries), 0)::int AS "ratings",
     ROUND(AVG(ranked) FILTER (WHERE ranked > 0), 1)::float AS "avg titles per list"
   FROM per_user

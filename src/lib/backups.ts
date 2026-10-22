@@ -4,7 +4,6 @@ import { sql } from "@/lib/db";
 export interface Restore {
   token: string;
   entries: { titleId: number; tier: string | null; state: string }[];
-  listName: string | null;
   savedAt: Date | null;
 }
 
@@ -12,8 +11,8 @@ const MAX_BACKUPS = 20;
 
 export async function createBackup(userId: string): Promise<{ token: string; count: number }> {
   const [row] = await sql`
-    INSERT INTO backups (token, user_id, list_name, entries)
-    SELECT replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), u.id, u.list_name,
+    INSERT INTO backups (token, user_id, entries)
+    SELECT replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), u.id,
       COALESCE((
         SELECT jsonb_agg(jsonb_build_object('titleId', r.title_id, 'tier', r.tier, 'state', r.state) ORDER BY r.updated_at)
         FROM ratings r WHERE r.user_id = u.id
@@ -31,23 +30,21 @@ export async function createBackup(userId: string): Promise<{ token: string; cou
 
 export async function findRestore(token: string): Promise<Restore | null> {
   if (!/^[\w-]{32,64}$/.test(token)) return null;
-  const [backup] = await sql`SELECT entries, list_name, created_at FROM backups WHERE token = ${token}`;
+  const [backup] = await sql`SELECT entries, created_at FROM backups WHERE token = ${token}`;
   if (backup) {
     return {
       token,
       entries: backup.entries as Restore["entries"],
-      listName: (backup.list_name as string | null) ?? null,
       savedAt: backup.created_at as Date,
     };
   }
   // The first restore links pointed at an account: they copy its list as it is today
-  const [user] = await sql`SELECT id, list_name FROM users WHERE restore_token = ${token}`;
+  const [user] = await sql`SELECT id FROM users WHERE restore_token = ${token}`;
   if (!user) return null;
   const rows = await sql`SELECT title_id, tier, state FROM ratings WHERE user_id = ${user.id} ORDER BY updated_at`;
   return {
     token,
     entries: rows.map((r) => ({ titleId: Number(r.title_id), tier: (r.tier as string | null) ?? null, state: String(r.state) })),
-    listName: (user.list_name as string | null) ?? null,
     savedAt: null,
   };
 }
@@ -70,6 +67,5 @@ export async function applyRestore(restore: Restore, userId: string) {
       WHERE EXISTS (SELECT 1 FROM titles t WHERE t.id = e."titleId")
       ON CONFLICT DO NOTHING
     `;
-    if (restore.listName) await tx`UPDATE users SET list_name = ${restore.listName} WHERE id = ${userId}`;
   });
 }
