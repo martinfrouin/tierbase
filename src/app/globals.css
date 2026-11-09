@@ -1117,3 +1117,47 @@ a.chip {
     text-align: center;
   }
 }
+
+/* Landing page: one card per universe */
+.universe-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.universe-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.universe-card:hover {
+  border-color: var(--accent);
+}
+
+.universe-card h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.universe-card p {
+  margin: 0;
+  flex: 1;
+}
+
+.universe-card .button {
+  align-self: flex-start;
+}
+
+.universe-covers {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  min-height: 60px;
+}

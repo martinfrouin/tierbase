@@ -10,7 +10,6 @@ export interface UniverseConfig {
   id: Universe;
   label: string;
   emoji: string;
-  // "" for reading: its pages kept their original URLs
   basePath: string;
   titlePath: string;
   // For sentences: "Have you read it?" / "Have you played it?"
@@ -33,7 +32,7 @@ export const UNIVERSE_CONFIG: Record<Universe, UniverseConfig> = {
     id: "reading",
     label: "Reading",
     emoji: "📖",
-    basePath: "",
+    basePath: "/reading",
     titlePath: "/title",
     verb: "read",
     past: "read",
@@ -65,9 +64,13 @@ export const UNIVERSE_CONFIG: Record<Universe, UniverseConfig> = {
   },
 };
 
-// /games/… and /game/… belong to Games, everything else to Reading
-export function universeOfPath(pathname: string): Universe {
-  return pathname === "/games" || pathname.startsWith("/games/") || pathname.startsWith("/game/") ? "games" : "reading";
+// Pages of a universe live under its base path, plus its title pages. The landing page, contact and legal pages belong to none.
+export function universeOfPath(pathname: string): Universe | null {
+  const under = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+  return (
+    UNIVERSES.find((u) => under(UNIVERSE_CONFIG[u].basePath) || pathname.startsWith(`${UNIVERSE_CONFIG[u].titlePath}/`)) ??
+    null
+  );
 }
 
 export function titleHref(title: { slug: string; universe: Universe }): string {
@@ -75,5 +78,5 @@ export function titleHref(title: { slug: string; universe: Universe }): string {
 }
 
 export function universePath(universe: Universe, path: "" | "/ranking" | "/tierlist" = ""): string {
-  return UNIVERSE_CONFIG[universe].basePath + path || "/";
+  return UNIVERSE_CONFIG[universe].basePath + path;
 }

@@ -72,7 +72,7 @@ One config object per universe: base path (`''` / `'/games'`), title path (`/tit
 
 ### Routes
 
-Reading keeps its current URLs (SEO and shared links). Games mirror them:
+Reading moved under `/reading` (`/reading/ranking`, `/reading/tierlist/[shareId]`…), with 301 redirects from the old `/ranking`, `/tierlist/*` and `/for-you`; `/` is a landing page offering both universes. Title pages stay at `/title/[slug]`. Games mirror Reading:
 
 - `/games` (home with recommendations), `/games/ranking?genre=roguelite`, `/games/tierlist`, `/games/tierlist/[shareId]` (+ image and OG routes)
 - `/game/[slug]` (+ OG image)

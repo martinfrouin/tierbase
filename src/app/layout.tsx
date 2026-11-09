@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: { siteName: SITE_NAME, type: "website" },
   twitter: { card: "summary_large_image" },
   title: {
-    default: `${SITE_NAME} — find your next manhwa, manga or manhua`,
+    default: `${SITE_NAME} — find your next read or game`,
     template: `%s · ${SITE_NAME}`,
   },
   description:
@@ -57,7 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Tier<span className="brand-gradient">Base</span>
             </span>
           </Link>
-          <Suspense fallback={<SiteNavLinks universe="reading">{github}</SiteNavLinks>}>
+          <Suspense fallback={<SiteNavLinks universe={null}>{github}</SiteNavLinks>}>
             <SiteNav>{github}</SiteNav>
           </Suspense>
         </header>

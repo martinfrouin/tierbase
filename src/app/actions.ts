@@ -11,7 +11,7 @@ import { UNIVERSES, type Universe } from "@/lib/universes";
 
 // Home pages and tier lists of both universes show the visitor's own ratings
 function revalidateLists() {
-  for (const path of ["/", "/tierlist", "/games", "/games/tierlist"]) revalidatePath(path);
+  for (const path of ["/reading", "/reading/tierlist", "/games", "/games/tierlist"]) revalidatePath(path);
 }
 
 export async function setEntry(
@@ -75,9 +75,9 @@ export async function saveBackup(): Promise<{ token: string; count: number }> {
 
 export async function restoreBackup(token: string) {
   const restore = await findRestore(token);
-  if (!restore) redirect("/tierlist?restore=invalid");
+  if (!restore) redirect("/reading/tierlist?restore=invalid");
   await applyRestore(restore, await ensureUserId());
   updateTag(RATINGS_TAG);
   revalidateLists();
-  redirect("/tierlist?restore=ok");
+  redirect("/reading/tierlist?restore=ok");
 }

@@ -25,8 +25,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const ranking = (path: string) => ({ url: `${SITE_URL}${path}`, changeFrequency: "daily" as const, priority: 0.9 });
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
-    ranking("/ranking"),
-    ...KINDS.map((k) => ranking(`/ranking?kind=${k.value}`)),
+    { url: `${SITE_URL}/reading`, changeFrequency: "daily", priority: 1 },
+    ranking("/reading/ranking"),
+    ...KINDS.map((k) => ranking(`/reading/ranking?kind=${k.value}`)),
     { url: `${SITE_URL}/games`, changeFrequency: "daily", priority: 1 },
     ranking("/games/ranking"),
     ...GAME_GENRES.filter((g) => (genreCounts.get(g.name) ?? 0) >= MIN_GENRE_TITLES).map((g) =>

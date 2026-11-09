@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 import HeaderSearch from "@/components/HeaderSearch";
 import { UNIVERSE_CONFIG, UNIVERSES, universeOfPath, universePath, type Universe } from "@/lib/universes";
 
-export function SiteNavLinks({ universe, children }: { universe: Universe; children?: ReactNode }) {
+// Outside a universe (landing, contact…) no switch tab is active and the links lead to Reading
+export function SiteNavLinks({ universe, children }: { universe: Universe | null; children?: ReactNode }) {
+  const linked = universe ?? "reading";
   return (
     <>
       <div className="universe-switch" role="navigation" aria-label="Universe">
@@ -18,8 +20,8 @@ export function SiteNavLinks({ universe, children }: { universe: Universe; child
       </div>
       <nav>
         <HeaderSearch />
-        <Link href={universePath(universe, "/ranking")}>Ranking</Link>
-        <Link href={universePath(universe, "/tierlist")} className="nav-cta">
+        <Link href={universePath(linked, "/ranking")}>Ranking</Link>
+        <Link href={universePath(linked, "/tierlist")} className="nav-cta">
           My tier list
         </Link>
         {children}

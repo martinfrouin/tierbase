@@ -15,7 +15,7 @@ const titles = (n: number) => `${n} title${n === 1 ? "" : "s"}`;
 async function Confirm({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const [restore, current] = await Promise.all([findRestore(token), currentUserId()]);
-  if (!restore) redirect("/tierlist?restore=invalid");
+  if (!restore) redirect("/reading/tierlist?restore=invalid");
 
   const currentCount = current ? (await getLibrary(current, null)).length : 0;
   const saved = restore.savedAt
@@ -36,7 +36,7 @@ async function Confirm({ params }: { params: Promise<{ token: string }> }) {
         <form action={restoreBackup.bind(null, token)}>
           <button className="button primary">Restore</button>
         </form>
-        <Link className="button" href="/tierlist">
+        <Link className="button" href="/reading/tierlist">
           {currentCount > 0 ? "Keep my current list" : "Cancel"}
         </Link>
       </div>
