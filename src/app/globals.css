@@ -149,11 +149,11 @@ main {
   color: #111;
 }
 
-/* "Want to read/play" on recommendations: the likely next step for something new */
+/* "Want to read/play" on recommendations: the likely next step for something new. No accent color,
+   which would read as already selected (selected chips are filled with the accent) */
 .chip.chip-want:not(.active) {
-  border-color: var(--accent);
-  color: var(--accent);
   font-weight: 600;
+  color: var(--text);
 }
 
 .tag {
