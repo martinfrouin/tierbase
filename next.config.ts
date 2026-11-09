@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
       // Title pages moved under their universe too
       { source: "/title/:path*", destination: "/reading/title/:path*", permanent: true },
       { source: "/game/:path*", destination: "/games/title/:path*", permanent: true },
+      // autoconfig.tierbase.io only exists to serve mail client settings (src/lib/mail-autoconfig.ts)
+      {
+        source: "/:path((?!mail/config-v1\\.1\\.xml$).*)",
+        has: [{ type: "host", value: "autoconfig.tierbase.io" }],
+        destination: "https://tierbase.io/:path",
+        permanent: true,
+      },
     ];
   },
   images: {
