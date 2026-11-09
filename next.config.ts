@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
       { source: "/for-you", destination: "/reading", permanent: true },
       { source: "/ranking", destination: "/reading/ranking", permanent: true },
       { source: "/tierlist/:path*", destination: "/reading/tierlist/:path*", permanent: true },
+      // Title pages moved under their universe too
+      { source: "/title/:path*", destination: "/reading/title/:path*", permanent: true },
+      { source: "/game/:path*", destination: "/games/title/:path*", permanent: true },
     ];
   },
   images: {

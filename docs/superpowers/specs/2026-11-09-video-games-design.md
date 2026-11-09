@@ -68,14 +68,14 @@ IGDB has no "Roguelite" genre. `scripts/lib/game-genres.ts` maps IGDB genres, th
 
 ### `src/lib/universes.ts` (new)
 
-One config object per universe: base path (`''` / `'/games'`), title path (`/title` / `/game`), wording (read/play, "Want to read"/"Want to play", "Find your next read"/"Find your next game", "readers"/"players"), filter options (kinds vs genres), catalog source credit (AniList / IGDB). Components receive this config instead of hard-coded strings: `TierBoard`, `RateButtons`, `FavoritesPicker`, `TierListNudge`, `Synopsis`, `tier-image.tsx`, OpenGraph images.
+One config object per universe: base path (`/reading` / `/games`), title path (`/reading/title` / `/games/title`), wording (read/play, "Want to read"/"Want to play", "Find your next read"/"Find your next game", "readers"/"players"), filter options (kinds vs genres), catalog source credit (AniList / IGDB). Components receive this config instead of hard-coded strings: `TierBoard`, `RateButtons`, `FavoritesPicker`, `TierListNudge`, `Synopsis`, `tier-image.tsx`, OpenGraph images.
 
 ### Routes
 
-Reading moved under `/reading` (`/reading/ranking`, `/reading/tierlist/[shareId]`…), with 301 redirects from the old `/ranking`, `/tierlist/*` and `/for-you`; `/` is a landing page offering both universes. Title pages stay at `/title/[slug]`. Games mirror Reading:
+Reading moved under `/reading` (`/reading/ranking`, `/reading/tierlist/[shareId]`…), with 301 redirects from the old `/ranking`, `/tierlist/*` and `/for-you`; `/` is a landing page offering both universes. Title pages live under their universe too: `/reading/title/[slug]` and `/games/title/[slug]` (old `/title/*` and `/game/*` redirect). Games mirror Reading:
 
 - `/games` (home with recommendations), `/games/ranking?genre=roguelite`, `/games/tierlist`, `/games/tierlist/[shareId]` (+ image and OG routes)
-- `/game/[slug]` (+ OG image)
+- `/games/title/[slug]` (+ OG image)
 - `/games/ranking/[genre]`: static, indexable "Best roguelites" style pages for the main genres, in the sitemap
 
 Existing page files become thin wrappers around shared page components that take a universe.

@@ -33,7 +33,7 @@ export const UNIVERSE_CONFIG: Record<Universe, UniverseConfig> = {
     label: "Reading",
     emoji: "📖",
     basePath: "/reading",
-    titlePath: "/title",
+    titlePath: "/reading/title",
     verb: "read",
     past: "read",
     people: "readers",
@@ -50,7 +50,7 @@ export const UNIVERSE_CONFIG: Record<Universe, UniverseConfig> = {
     label: "Games",
     emoji: "🎮",
     basePath: "/games",
-    titlePath: "/game",
+    titlePath: "/games/title",
     verb: "play",
     past: "played",
     people: "players",
@@ -64,13 +64,10 @@ export const UNIVERSE_CONFIG: Record<Universe, UniverseConfig> = {
   },
 };
 
-// Pages of a universe live under its base path, plus its title pages. The landing page, contact and legal pages belong to none.
+// Every page of a universe lives under its base path. The landing page, contact and legal pages belong to none.
 export function universeOfPath(pathname: string): Universe | null {
   const under = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
-  return (
-    UNIVERSES.find((u) => under(UNIVERSE_CONFIG[u].basePath) || pathname.startsWith(`${UNIVERSE_CONFIG[u].titlePath}/`)) ??
-    null
-  );
+  return UNIVERSES.find((u) => under(UNIVERSE_CONFIG[u].basePath)) ?? null;
 }
 
 export function titleHref(title: { slug: string; universe: Universe }): string {
