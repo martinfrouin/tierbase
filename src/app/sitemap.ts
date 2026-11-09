@@ -17,7 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [titles, genreCounts] = await Promise.all([
     sql`
       SELECT slug, universe FROM titles
-      WHERE id IN (SELECT title_id FROM mentions UNION SELECT title_id FROM ratings WHERE tier IS NOT NULL)
+      WHERE mention_count > 0 OR votes > 0
       ORDER BY popularity DESC
     `,
     getRankedGenreCounts("games"),

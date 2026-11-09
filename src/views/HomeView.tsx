@@ -7,7 +7,7 @@ import TierListNudge from "@/components/TierListNudge";
 import {
   getGenres,
   getLibrary,
-  getRanking,
+  getTopTitles,
   personalRecommendations,
   scoreOutOf100,
   type LibraryEntry,
@@ -75,11 +75,10 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
   const config = UNIVERSE_CONFIG[universe];
   const inLibrary = new Set(library.map((e) => e.title.id));
   const liked = library.filter((e) => e.tier === "S" || e.tier === "A");
-  const [recs, ranking] = await Promise.all([
+  const [recs, unranked] = await Promise.all([
     personalRecommendations(userId, RECOMMENDATIONS, universe),
-    getRanking({ universe }),
+    getTopTitles(universe, UNRANKED, [...inLibrary]),
   ]);
-  const unranked = ranking.filter((t) => !inLibrary.has(t.id)).slice(0, UNRANKED);
   const genres = await getGenres(unranked.map((t) => t.id));
   const noun = universe === "games" ? "games" : "titles";
 
@@ -167,8 +166,7 @@ async function HomeContent({ universe }: { universe: Universe }) {
   if (userId && library.filter((e) => e.tier).length >= DASHBOARD_MIN_RANKED) {
     return <Dashboard universe={universe} userId={userId} library={library} />;
   }
-  const inLibrary = new Set(library.map((e) => e.title.id));
-  const suggestions = (await getRanking({ universe })).filter((t) => !inLibrary.has(t.id)).slice(0, SUGGESTIONS);
+  const suggestions = await getTopTitles(universe, SUGGESTIONS, library.map((e) => e.title.id));
   return <Onboarding universe={universe} suggestions={suggestions} />;
 }
 

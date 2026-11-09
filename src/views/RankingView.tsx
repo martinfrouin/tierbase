@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
-import { getRankedGenreCounts, getRanking, KINDS, scoreOutOf100, type Kind } from "@/lib/data";
+import { getRankedGenreCounts, getRankingPage, KINDS, scoreOutOf100, type Kind } from "@/lib/data";
 import { GAME_GENRES, parseGenre, type GameGenre } from "@/lib/game-genres";
 import { parseKind } from "@/lib/kinds";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
@@ -98,12 +98,17 @@ async function RankingList({ universe, searchParams }: { universe: Universe; sea
   const params = await searchParams;
   const filter = parseFilter(universe, params);
   const config = UNIVERSE_CONFIG[universe];
-  const query = params.q?.trim().toLowerCase() ?? "";
+  const query = params.q?.trim().slice(0, 80) ?? "";
   const page = Math.max(1, Number(params.page) || 1);
 
-  const all = await getRanking({ universe, kind: filter.kind, genre: filter.genre?.name });
-  const filtered = all.filter((t) => !query || t.name.toLowerCase().includes(query));
-  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { titles: visible, total } = await getRankingPage({
+    universe,
+    kind: filter.kind,
+    genre: filter.genre?.name,
+    query: query || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  });
 
   return (
     <>
@@ -152,11 +157,11 @@ async function RankingList({ universe, searchParams }: { universe: Universe; sea
           </li>
         ))}
       </ol>
-      {filtered.length === 0 && <p className="muted">No title matches.</p>}
+      {total === 0 && <p className="muted">No title matches.</p>}
 
       <nav className="pager">
         {page > 1 && <Link href={href(universe, { ...params, page: String(page - 1) })}>← Previous</Link>}
-        {page * PAGE_SIZE < filtered.length && (
+        {page * PAGE_SIZE < total && (
           <Link href={href(universe, { ...params, page: String(page + 1) })}>Next →</Link>
         )}
       </nav>

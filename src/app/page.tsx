@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
-import { getRanking } from "@/lib/data";
+import { getTopCovers } from "@/lib/data";
 import { UNIVERSE_CONFIG, UNIVERSES, universePath, type Universe } from "@/lib/universes";
 
 const PREVIEW = 6;
@@ -20,7 +20,7 @@ const PITCH: Record<Universe, { title: string; text: string; cta: string }> = {
 };
 
 async function Covers({ universe }: { universe: Universe }) {
-  const top = (await getRanking({ universe })).slice(0, PREVIEW);
+  const top = await getTopCovers(universe, PREVIEW);
   return (
     <div className="universe-covers" aria-hidden>
       {top.map((t) => (

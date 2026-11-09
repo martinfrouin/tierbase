@@ -75,11 +75,6 @@ export interface Recommendation {
   because: TitleCard[];
 }
 
-// Bayesian average: each title starts with virtual votes at a Reddit-based prior. The more Reddit readers cited it,
-// the more virtual votes (half a vote per mention, clamped), so a lone tier list vote can't outweigh 40 recommendations.
-const MIN_PRIOR_WEIGHT = 3;
-const MAX_PRIOR_WEIGHT = 25;
-const MIN_REFERENCE_MENTIONS = 20;
 // Damps similarities built on very few shared readers
 const SIMILARITY_SHRINK = 2;
 
@@ -96,53 +91,77 @@ function toCard(row: Record<string, unknown>): TitleCard {
   };
 }
 
-// Manhwa threads far outnumber manga and manhua ones. Each title is measured against a reference halfway (geometric mean)
-// between the top of its kind and the overall top: kinds get a fair chance without a niche leader outranking blockbusters.
-// With a kind filter both are the same, so the best manga leads the manga ranking.
+// Scores are kept in titles.score (db/schema.sql): Bayesian average of a Reddit prior and tier list votes
+function toRanked(row: Record<string, unknown>): RankedTitle {
+  const votes = Number(row.votes);
+  return {
+    ...toCard(row),
+    rank: Number(row.rank ?? 0),
+    mentions: Number(row.mention_count),
+    votes,
+    avgTier: votes ? TIERS[5 - Math.round(Number(row.vote_total) / votes)] : null,
+    score: Number(row.score),
+  };
+}
+
+const RANKED_COLUMNS = sql`t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, t.genres,
+  t.mention_count, t.votes, t.vote_total, t.score`;
+// Cited on Reddit or voted on (matches the titles_ranked_score index)
+const RANKED = sql`(t.mention_count > 0 OR t.votes > 0)`;
+
 export interface RankingFilter {
   universe?: Universe;
   kind?: Kind;
   genre?: string;
 }
 
-export async function getRanking({ universe = "reading", kind, genre }: RankingFilter = {}): Promise<RankedTitle[]> {
-  "use cache: remote";
-  cacheLife("minutes");
-  cacheTag(RATINGS_TAG);
+export interface RankingPage {
+  titles: RankedTitle[];
+  total: number;
+}
 
+// One page of a ranking. Ranks are positions within the kind or genre filter; the name search keeps those ranks.
+export async function getRankingPage({
+  universe = "reading",
+  kind,
+  genre,
+  query,
+  page = 1,
+  pageSize = 50,
+}: RankingFilter & { query?: string; page?: number; pageSize?: number }): Promise<RankingPage> {
+  const pattern = query ? `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
   const rows = await sql`
-    WITH m AS (SELECT title_id, COUNT(*)::int AS n FROM mentions GROUP BY title_id),
-         r AS (SELECT title_id, COUNT(*)::int AS votes,
-                      SUM(CASE tier WHEN 'S' THEN 5 WHEN 'A' THEN 4 WHEN 'B' THEN 3 WHEN 'C' THEN 2 ELSE 1 END)::int AS total
-               FROM ratings WHERE tier IS NOT NULL GROUP BY title_id)
-    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, t.genres,
-           COALESCE(m.n, 0) AS mentions, COALESCE(r.votes, 0) AS votes, COALESCE(r.total, 0) AS total
-    FROM titles t LEFT JOIN m ON m.title_id = t.id LEFT JOIN r ON r.title_id = t.id
-    WHERE (m.n > 0 OR r.votes > 0) AND t.universe = ${universe}
-      AND (${universe}::text <> 'reading' OR t.kind IN ${sql(KINDS.map((k) => k.value))})
-      AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
-      AND (${genre ?? null}::text IS NULL OR t.genres @> jsonb_build_array(${genre ?? null}::text))
+    SELECT *, COUNT(*) OVER ()::int AS total FROM (
+      SELECT ${RANKED_COLUMNS}, rank() OVER (ORDER BY t.score DESC)::int AS rank
+      FROM titles t
+      WHERE ${RANKED} AND t.universe = ${universe}
+        AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
+        AND (${genre ?? null}::text IS NULL OR t.genres @> jsonb_build_array(${genre ?? null}::text))
+    ) ranked
+    WHERE ${pattern}::text IS NULL OR name ILIKE ${pattern}
+    ORDER BY score DESC, mention_count DESC, id
+    LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
   `;
+  return { titles: rows.map(toRanked), total: rows.length ? Number(rows[0].total) : 0 };
+}
 
-  // Floored, so a kind with a handful of mentions can't hand out 5/5 priors
-  const top = Math.max(MIN_REFERENCE_MENTIONS, ...rows.map((r) => Number(r.mentions)));
-  const kindTop = new Map<string, number>();
-  for (const r of rows) kindTop.set(String(r.kind), Math.max(kindTop.get(String(r.kind)) ?? MIN_REFERENCE_MENTIONS, Number(r.mentions)));
-  const scored = rows.map((row) => {
-    const mentions = Number(row.mentions);
-    const votes = Number(row.votes);
-    const reference = Math.sqrt(kindTop.get(String(row.kind))! * top);
-    // A title at the reference starts at 5/5, a single mention at ~3/5
-    const prior = 3 + (2 * Math.min(1, Math.log1p(mentions) / Math.log1p(reference)));
-    const weight = Math.min(MAX_PRIOR_WEIGHT, Math.max(MIN_PRIOR_WEIGHT, mentions / 2));
-    const score = (weight * prior + Number(row.total)) / (weight + votes);
-    const avgTier = votes ? TIERS[5 - Math.round(Number(row.total) / votes)] : null;
-    return { ...toCard(row), mentions, votes, avgTier, score, rank: 0 };
-  });
+// Best ranked titles of a universe, minus the ones a visitor already has
+export async function getTopTitles(universe: Universe, limit: number, exclude: number[] = []): Promise<RankedTitle[]> {
+  const rows = await sql`
+    SELECT ${RANKED_COLUMNS} FROM titles t
+    WHERE ${RANKED} AND t.universe = ${universe} AND t.id <> ALL(${exclude}::int[])
+    ORDER BY t.score DESC, t.mention_count DESC, t.id
+    LIMIT ${limit}
+  `;
+  return rows.map(toRanked);
+}
 
-  scored.sort((a, b) => b.score - a.score || b.mentions - a.mentions);
-  scored.forEach((t, i) => (t.rank = i > 0 && t.score === scored[i - 1].score ? scored[i - 1].rank : i + 1));
-  return scored;
+// Shared by every visitor (the landing page covers), so cached across instances
+export async function getTopCovers(universe: Universe, limit: number): Promise<TitleCard[]> {
+  "use cache: remote";
+  cacheLife("hours");
+  cacheTag(RATINGS_TAG);
+  return getTopTitles(universe, limit);
 }
 
 export async function getTitle(slug: string, universe: Universe = "reading"): Promise<TitleDetail | null> {
@@ -150,31 +169,27 @@ export async function getTitle(slug: string, universe: Universe = "reading"): Pr
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
 
+  // Rank: how many titles of the universe score higher, plus one (titles with no mention and no vote are unranked)
   const [row] = await sql`
-    SELECT t.*, (SELECT COUNT(*)::int FROM mentions WHERE title_id = t.id) AS mentions FROM titles t
-    WHERE slug = ${slug} AND universe = ${universe}
+    SELECT t.*, CASE WHEN ${RANKED} THEN 1 + (
+      SELECT COUNT(*) FROM titles o
+      WHERE (o.mention_count > 0 OR o.votes > 0) AND o.universe = t.universe AND o.score > t.score
+    ) ELSE 0 END::int AS rank
+    FROM titles t WHERE t.slug = ${slug} AND t.universe = ${universe}
   `;
   if (!row) return null;
-  const [ranking, tierRows] = await Promise.all([
-    getRanking({ universe }),
-    sql`SELECT tier, COUNT(*)::int AS n FROM ratings WHERE title_id = ${row.id} AND tier IS NOT NULL GROUP BY tier`,
-  ]);
-  const ranked = ranking.find((t) => t.id === Number(row.id));
+  const tierRows = await sql`
+    SELECT tier, COUNT(*)::int AS n FROM ratings WHERE title_id = ${row.id} AND tier IS NOT NULL GROUP BY tier
+  `;
   const tierCounts = Object.fromEntries(TIERS.map((t) => [t, 0])) as Record<Tier, number>;
   for (const r of tierRows) tierCounts[String(r.tier).trim() as Tier] = Number(r.n);
   return {
-    ...toCard(row),
-    rank: ranked?.rank ?? 0,
-    mentions: Number(row.mentions),
-    votes: ranked?.votes ?? 0,
-    avgTier: ranked?.avgTier ?? null,
-    score: ranked?.score ?? 0,
+    ...toRanked(row),
     tierCounts,
     romaji: row.romaji as string | null,
     native: row.native as string | null,
     description: row.description as string | null,
     status: row.status as string | null,
-    genres: row.genres as string[],
     url: String(row.url),
   };
 }
@@ -301,12 +316,9 @@ export async function getRankedGenreCounts(universe: Universe): Promise<Map<stri
   cacheLife("hours");
   cacheTag(RATINGS_TAG);
 
-  // A join, not "id IN (…mentions) OR id IN (…ratings)": once the mention ids outgrow work_mem, Postgres can't hash
-  // that OR'ed subquery and rescans every mention for each title, which timed out in production
   const rows = await sql`
-    WITH ranked AS (SELECT title_id FROM mentions UNION SELECT title_id FROM ratings WHERE tier IS NOT NULL)
-    SELECT g, COUNT(*)::int AS n FROM titles t JOIN ranked r ON r.title_id = t.id, jsonb_array_elements_text(t.genres) g
-    WHERE t.universe = ${universe}
+    SELECT g, COUNT(*)::int AS n FROM titles t, jsonb_array_elements_text(t.genres) g
+    WHERE ${RANKED} AND t.universe = ${universe}
     GROUP BY g
   `;
   return new Map(rows.map((r) => [String(r.g), Number(r.n)]));

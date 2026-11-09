@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import RestoreLink from "@/components/RestoreLink";
 import TierBoard from "@/components/TierBoard";
-import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
+import { getLibrary, getShareInfo, getTopTitles, type Tier } from "@/lib/data";
 import { UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
 import { TierBoardSkeleton } from "@/components/Skeletons";
@@ -22,7 +22,7 @@ async function MyBoard({ universe }: { universe: Universe }) {
   const inLibrary = new Set(library.map((e) => e.title.id));
 
   const wanted = library.filter((e) => e.state === "want").map((e) => e.title);
-  const popular = (await getRanking({ universe })).filter((t) => !inLibrary.has(t.id)).slice(0, POOL_SIZE);
+  const popular = await getTopTitles(universe, POOL_SIZE, [...inLibrary]);
 
   const share = userId ? await getShareInfo(userId) : null;
   const host = (await headers()).get("host");
