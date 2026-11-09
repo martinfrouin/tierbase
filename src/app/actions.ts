@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { sql } from "@/lib/db";
 import { applyRestore, createBackup, findRestore } from "@/lib/backups";
 import { ensureUserId } from "@/lib/user";
-import { KINDS, type Kind } from "@/lib/kinds";
+import { listFilters } from "@/lib/list-filters";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 import { UNIVERSES, type Universe } from "@/lib/universes";
 
@@ -50,14 +50,16 @@ export async function saveFavorites(titleIds: number[]) {
   refresh();
 }
 
-export async function clearTiers(kind: Kind | null, universe: Universe = "reading") {
+export async function clearTiers(filterValue: string | null, universe: Universe = "reading") {
   const userId = await ensureUserId();
-  if (kind && !KINDS.some((k) => k.value === kind)) throw new Error("Invalid kind");
   if (!UNIVERSES.includes(universe)) throw new Error("Invalid universe");
+  const filter = filterValue ? listFilters(universe).find((f) => f.value === filterValue) : null;
+  if (filterValue && !filter) throw new Error("Invalid filter");
   await sql`
     DELETE FROM ratings r USING titles t
     WHERE r.title_id = t.id AND r.user_id = ${userId} AND r.state IN ('rated', 'want') AND t.universe = ${universe}
-      AND (${kind}::text IS NULL OR t.kind = ${kind})
+      AND (${filter?.kind ?? null}::text IS NULL OR t.kind = ${filter?.kind ?? null})
+      AND (${filter?.genre ?? null}::text IS NULL OR t.genres @> jsonb_build_array(${filter?.genre ?? null}::text))
   `;
   updateTag(RATINGS_TAG);
   revalidateLists();

@@ -7,7 +7,8 @@ import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
 import { UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
 
-const POOL_SIZE = 60;
+// Deep enough that a filter (manhua, roguelites…) still has plenty to suggest; the board shows the first ones
+const POOL_SIZE = 400;
 
 export function tierListTitle(universe: Universe) {
   return universe === "games" ? "My games tier list" : "My tier list";

@@ -27,6 +27,7 @@ export interface TitleCard {
   cover: string;
   universe: Universe;
   year: number | null;
+  genres: string[];
 }
 
 export interface RankedTitle extends TitleCard {
@@ -91,6 +92,7 @@ function toCard(row: Record<string, unknown>): TitleCard {
     cover: String(row.cover),
     universe: row.universe as Universe,
     year: row.year == null ? null : Number(row.year),
+    genres: (row.genres as string[] | null) ?? [],
   };
 }
 
@@ -113,7 +115,7 @@ export async function getRanking({ universe = "reading", kind, genre }: RankingF
          r AS (SELECT title_id, COUNT(*)::int AS votes,
                       SUM(CASE tier WHEN 'S' THEN 5 WHEN 'A' THEN 4 WHEN 'B' THEN 3 WHEN 'C' THEN 2 ELSE 1 END)::int AS total
                FROM ratings WHERE tier IS NOT NULL GROUP BY title_id)
-    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year,
+    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, t.genres,
            COALESCE(m.n, 0) AS mentions, COALESCE(r.votes, 0) AS votes, COALESCE(r.total, 0) AS total
     FROM titles t LEFT JOIN m ON m.title_id = t.id LEFT JOIN r ON r.title_id = t.id
     WHERE (m.n > 0 OR r.votes > 0) AND t.universe = ${universe}
@@ -205,7 +207,7 @@ export async function searchTitles(query: string, limit = 24, universes: Univers
   if (normalized.length < 2) return [];
   const rows = await sql`
     WITH top AS (SELECT universe, GREATEST(MAX(popularity), 1) AS m FROM titles GROUP BY universe)
-    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year FROM titles t JOIN top USING (universe)
+    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, t.genres FROM titles t JOIN top USING (universe)
     WHERE t.search ILIKE ${"%" + normalized + "%"} AND t.universe IN ${sql(universes)}
     -- IGDB rating counts are ~100x smaller than AniList popularity: rank each universe on its own scale
     ORDER BY t.popularity::float / top.m DESC LIMIT ${limit}
@@ -290,7 +292,7 @@ export async function similarTitles(titleId: number, limit = 12): Promise<Recomm
 
 export async function getCards(ids: number[]): Promise<Map<number, TitleCard>> {
   if (ids.length === 0) return new Map();
-  const rows = await sql`SELECT id, slug, name, kind, cover, universe, year FROM titles WHERE id IN ${sql(ids)}`;
+  const rows = await sql`SELECT id, slug, name, kind, cover, universe, year, genres FROM titles WHERE id IN ${sql(ids)}`;
   return new Map(rows.map((r) => [Number(r.id), toCard(r)]));
 }
 
@@ -324,7 +326,7 @@ export interface LibraryEntry {
 // universe null = the whole list, every universe
 export async function getLibrary(userId: string, universe: Universe | null = "reading"): Promise<LibraryEntry[]> {
   const rows = await sql`
-    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, r.tier, r.state FROM ratings r JOIN titles t ON t.id = r.title_id
+    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, t.genres, r.tier, r.state FROM ratings r JOIN titles t ON t.id = r.title_id
     WHERE r.user_id = ${userId} AND (${universe}::text IS NULL OR t.universe = ${universe}) ORDER BY r.updated_at
   `;
   return rows.map((r) => ({ title: toCard(r), tier: (r.tier as Tier | null) ?? null, state: r.state as LibraryState }));

@@ -5,11 +5,13 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { clearTiers, search, setEntry } from "@/app/actions";
 import type { TitleCard, Tier } from "@/lib/data";
-import { KINDS, type Kind } from "@/lib/kinds";
+import { filtersInUse, matchesFilter, type ListFilter } from "@/lib/list-filters";
 import { UNIVERSE_CONFIG, type Universe } from "@/lib/universes";
 
 const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
 const POOL = "pool";
+// Suggestions shown at once in "Add more titles", out of a deeper pool so filters keep enough
+const POOL_SHOWN = 60;
 const WANT = "want";
 type Slot = Tier | typeof POOL | typeof WANT;
 
@@ -40,11 +42,13 @@ export default function TierBoard({
   const [pool, setPool] = useState(initialPool);
   const [selected, setSelected] = useState<TitleCard | null>(null);
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<Kind | null>(null);
+  const [filter, setFilter] = useState<ListFilter | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const latestQuery = useRef("");
+
+  const filterQuery = filter ? `?${filter.param}=${filter.value}` : "";
 
   const notify = (message: string) => {
     setToast(message);
@@ -75,8 +79,8 @@ export default function TierBoard({
     setWant((prev) => prev.filter((x) => !clearedIds.has(x.id)));
     setPool((prev) => [...cleared, ...prev]);
     try {
-      await clearTiers(kind, universe);
-      track("Tier list cleared", { kind: kind ?? "all", universe });
+      await clearTiers(filter?.value ?? null, universe);
+      track("Tier list cleared", { filter: filter?.value ?? "all", universe });
     } catch {
       notify("Couldn't clear, try again");
     }
@@ -125,7 +129,7 @@ export default function TierBoard({
   const copy = async (text: string, message: string, event: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      track(event, { kind: kind ?? "all", universe });
+      track(event, { filter: filter?.value ?? "all", universe });
       notify(message);
     } catch {
       notify("Copy failed");
@@ -137,7 +141,7 @@ export default function TierBoard({
     if (!shareUrl) return;
     setGenerating(true);
     try {
-      const response = await fetch(`${shareUrl}/image${kind ? `?kind=${kind}` : ""}`);
+      const response = await fetch(`${shareUrl}/image${filterQuery}`);
       if (!response.ok) throw new Error(String(response.status));
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
@@ -145,7 +149,7 @@ export default function TierBoard({
       link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "tier-list.png";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      track("Image downloaded", { kind: kind ?? "all", universe });
+      track("Image downloaded", { filter: filter?.value ?? "all", universe });
     } catch {
       notify("Couldn't generate the image");
     } finally {
@@ -153,10 +157,11 @@ export default function TierBoard({
     }
   };
 
-  const shown = (list: TitleCard[]) => (kind ? list.filter((t) => t.kind === kind) : list);
-  const kindsInUse = KINDS.filter((k) => [...Object.values(tiers).flat(), ...want, ...pool].some((t) => t.kind === k.value));
+  const shown = (list: TitleCard[]) => list.filter((t) => matchesFilter(filter, t));
+  // Offered from what is ranked, so "Roguelite" only shows up once a roguelite is in the list
+  const options = filtersInUse(universe, [...Object.values(tiers).flat(), ...want]);
   const hasPlaced = TIERS.some((t) => shown(tiers[t]).length);
-  const filteredShareUrl = shareUrl && kind ? `${shareUrl}?kind=${kind}` : shareUrl;
+  const filteredShareUrl = shareUrl && filter ? `${shareUrl}${filterQuery}` : shareUrl;
 
   return (
     <>
@@ -190,20 +195,24 @@ export default function TierBoard({
               </span>
             ) : (
               <button className="button clear-button" onClick={() => setConfirmClear(true)}>
-                {kind ? `Clear ${KINDS.find((k) => k.value === kind)?.label} tiers` : "Clear tier list"}
+                {filter ? `Clear ${filter.label} tiers` : "Clear tier list"}
               </button>
             ))}
         </div>
       )}
 
-      {kindsInUse.length > 1 && (
+      {options.length > (universe === "reading" ? 1 : 0) && (
         <div className="chips board-filter">
-          <button className={kind ? "chip" : "chip active"} onClick={() => setKind(null)}>
+          <button className={filter ? "chip" : "chip active"} onClick={() => setFilter(null)}>
             All
           </button>
-          {kindsInUse.map((k) => (
-            <button key={k.value} className={kind === k.value ? "chip active" : "chip"} onClick={() => setKind(kind === k.value ? null : k.value)}>
-              {k.label}
+          {options.map((f) => (
+            <button
+              key={f.value}
+              className={filter?.value === f.value ? "chip active" : "chip"}
+              onClick={() => setFilter(filter?.value === f.value ? null : f)}
+            >
+              {f.label}
             </button>
           ))}
         </div>
@@ -228,7 +237,7 @@ export default function TierBoard({
 
           <section className="pool-section">
             <h2>
-              {config.want} <span className="muted">({want.length})</span>
+              {config.want} <span className="muted">({shown(want).length})</span>
             </h2>
             <div className={selected ? "pool want target" : "pool want"} {...dropProps(WANT)}>
               {want.length === 0 ? (
@@ -251,7 +260,7 @@ export default function TierBoard({
               onChange={(e) => onSearch(e.target.value)}
             />
             <div className={selected ? "pool target" : "pool"} {...dropProps(POOL)}>
-              {shown(pool).map(card)}
+              {shown(pool).slice(0, POOL_SHOWN).map(card)}
             </div>
             <p className="muted">Drop a title back here to remove it from your list.</p>
           </section>

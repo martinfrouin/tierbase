@@ -20,6 +20,7 @@ export function SiteNavLinks({ universe, children }: { universe: Universe | null
       </div>
       <nav>
         <HeaderSearch />
+        <Link href={universePath(linked)}>For you</Link>
         <Link href={universePath(linked, "/ranking")}>Ranking</Link>
         <Link href={universePath(linked, "/tierlist")} className="nav-cta">
           My tier list

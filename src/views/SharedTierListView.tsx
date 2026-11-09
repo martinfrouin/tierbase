@@ -14,20 +14,28 @@ import {
   userBasket,
   type LibraryEntry,
 } from "@/lib/data";
-import { KINDS, parseKind } from "@/lib/kinds";
+import { filtersInUse, matchesFilter, parseListFilter, type ListFilter } from "@/lib/list-filters";
 import { DOWNLOAD_LAYOUT, imageHeight, OG_LAYOUT, TierImage, WIDTH } from "@/lib/tier-image";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
 
 export const TIER_OG_SIZE = { width: 1200, height: 630 };
 
-function listName(universe: Universe) {
-  return `A ${UNIVERSE_CONFIG[universe].person}'s tier list`;
+type FilterParams = { kind?: string; genre?: string };
+
+// "A player's Roguelite tier list" when a games list is narrowed to one genre
+function listName(universe: Universe, filter: ListFilter | null = null) {
+  const genre = filter?.genre ? `${filter.label} ` : "";
+  return `A ${UNIVERSE_CONFIG[universe].person}'s ${genre}tier list`;
 }
 
-export async function sharedTierListMetadata(universe: Universe, params: Promise<{ shareId: string }>): Promise<Metadata> {
+export async function sharedTierListMetadata(
+  universe: Universe,
+  params: Promise<{ shareId: string }>,
+  searchParams: Promise<FilterParams>,
+): Promise<Metadata> {
   const { shareId } = await params;
-  const name = listName(universe);
+  const name = listName(universe, parseListFilter(universe, await searchParams));
   const description =
     universe === "games"
       ? "See how this player ranks their games, then make your own tier list."
@@ -77,16 +85,16 @@ async function SharedList({
 }: {
   universe: Universe;
   params: Promise<{ shareId: string }>;
-  searchParams: Promise<{ kind?: string }>;
+  searchParams: Promise<FilterParams>;
 }) {
   const { shareId } = await params;
   const owner = await getUserByShareId(shareId);
   if (!owner) notFound();
   const config = UNIVERSE_CONFIG[universe];
   const list = (await getLibrary(owner.id, universe)).filter((e) => e.tier);
-  const kind = universe === "reading" ? parseKind((await searchParams).kind) : null;
-  const shown = kind ? list.filter((e) => e.title.kind === kind) : list;
-  const kindsInUse = universe === "reading" ? KINDS.filter((k) => list.some((e) => e.title.kind === k.value)) : [];
+  const filter = parseListFilter(universe, await searchParams);
+  const shown = list.filter((e) => matchesFilter(filter, e.title));
+  const options = filtersInUse(universe, list.map((e) => e.title));
   const liked = list.filter((e) => e.tier === "S" || e.tier === "A");
   const recs = (
     await recommend(
@@ -95,14 +103,14 @@ async function SharedList({
       { limit: 40, skipBasket: userBasket(owner.id, universe) },
     )
   )
-    .filter((r) => !kind || r.title.kind === kind)
+    .filter((r) => matchesFilter(filter, r.title))
     .slice(0, 6);
   const listPath = `${universePath(universe, "/tierlist")}/${shareId}`;
 
   return (
     <>
       <section className="hero">
-        <h1>{listName(universe)}</h1>
+        <h1>{listName(universe, filter)}</h1>
         <p className="muted">
           {shown.length} {universe === "games" ? "games" : "titles"} ranked
         </p>
@@ -111,14 +119,18 @@ async function SharedList({
         </Suspense>
       </section>
 
-      {kindsInUse.length > 1 && (
+      {options.length > 1 && (
         <div className="chips board-filter">
-          <Link className={kind ? "chip" : "chip active"} href={listPath}>
+          <Link className={filter ? "chip" : "chip active"} href={listPath}>
             All
           </Link>
-          {kindsInUse.map((k) => (
-            <Link key={k.value} className={kind === k.value ? "chip active" : "chip"} href={`${listPath}?kind=${k.value}`}>
-              {k.label}
+          {options.map((f) => (
+            <Link
+              key={f.value}
+              className={filter?.value === f.value ? "chip active" : "chip"}
+              href={`${listPath}?${f.param}=${f.value}`}
+            >
+              {f.label}
             </Link>
           ))}
         </div>
@@ -174,7 +186,7 @@ export default function SharedTierListView({
 }: {
   universe: Universe;
   params: Promise<{ shareId: string }>;
-  searchParams: Promise<{ kind?: string }>;
+  searchParams: Promise<FilterParams>;
 }) {
   return (
     <Suspense fallback={<p className="muted">Loading…</p>}>
@@ -194,9 +206,10 @@ export async function sharedTierListOgImage(universe: Universe, shareId: string)
 export async function sharedTierListImage(universe: Universe, shareId: string, request: Request) {
   const owner = await getUserByShareId(shareId);
   if (!owner) return new Response("Not found", { status: 404 });
-  const kind = universe === "reading" ? parseKind(new URL(request.url).searchParams.get("kind")) : null;
-  const list = (await getLibrary(owner.id, universe)).filter((e) => e.tier && (!kind || e.title.kind === kind));
-  const filename = kind ? `${kind}-tier-list` : universe === "games" ? "games-tier-list" : "tier-list";
+  const query = new URL(request.url).searchParams;
+  const filter = parseListFilter(universe, { kind: query.get("kind"), genre: query.get("genre") });
+  const list = (await getLibrary(owner.id, universe)).filter((e) => e.tier && matchesFilter(filter, e.title));
+  const filename = filter ? `${filter.name}-tier-list` : universe === "games" ? "games-tier-list" : "tier-list";
 
   return new ImageResponse(<TierImage list={list} layout={DOWNLOAD_LAYOUT} />, {
     width: WIDTH,
