@@ -7,6 +7,12 @@ import { applyRestore, createBackup, findRestore } from "@/lib/backups";
 import { ensureUserId } from "@/lib/user";
 import { KINDS, type Kind } from "@/lib/kinds";
 import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
+import { UNIVERSES, type Universe } from "@/lib/universes";
+
+// Home pages and tier lists of both universes show the visitor's own ratings
+function revalidateLists() {
+  for (const path of ["/", "/tierlist", "/games", "/games/tierlist"]) revalidatePath(path);
+}
 
 export async function setEntry(
   titleId: number,
@@ -25,8 +31,7 @@ export async function setEntry(
     `;
   }
   updateTag(RATINGS_TAG);
-  revalidatePath("/");
-  revalidatePath("/tierlist");
+  revalidateLists();
   // Pages the visitor already opened (an empty tier list) would otherwise come back from the client cache
   refresh();
 }
@@ -41,27 +46,27 @@ export async function saveFavorites(titleIds: number[]) {
     `;
   }
   updateTag(RATINGS_TAG);
-  revalidatePath("/");
-  revalidatePath("/tierlist");
+  revalidateLists();
   refresh();
 }
 
-export async function clearTiers(kind: Kind | null) {
+export async function clearTiers(kind: Kind | null, universe: Universe = "reading") {
   const userId = await ensureUserId();
   if (kind && !KINDS.some((k) => k.value === kind)) throw new Error("Invalid kind");
+  if (!UNIVERSES.includes(universe)) throw new Error("Invalid universe");
   await sql`
     DELETE FROM ratings r USING titles t
-    WHERE r.title_id = t.id AND r.user_id = ${userId} AND r.state IN ('rated', 'want') AND t.universe = 'reading'
+    WHERE r.title_id = t.id AND r.user_id = ${userId} AND r.state IN ('rated', 'want') AND t.universe = ${universe}
       AND (${kind}::text IS NULL OR t.kind = ${kind})
   `;
   updateTag(RATINGS_TAG);
-  revalidatePath("/");
-  revalidatePath("/tierlist");
+  revalidateLists();
   refresh();
 }
 
-export async function search(query: string): Promise<TitleCard[]> {
-  return searchTitles(query.slice(0, 80));
+export async function search(query: string, universes: Universe[] = ["reading"]): Promise<TitleCard[]> {
+  const valid = universes.filter((u) => UNIVERSES.includes(u));
+  return searchTitles(query.slice(0, 80), 24, valid.length ? valid : ["reading"]);
 }
 
 export async function saveBackup(): Promise<{ token: string; count: number }> {
@@ -73,7 +78,6 @@ export async function restoreBackup(token: string) {
   if (!restore) redirect("/tierlist?restore=invalid");
   await applyRestore(restore, await ensureUserId());
   updateTag(RATINGS_TAG);
-  revalidatePath("/");
-  revalidatePath("/tierlist");
+  revalidateLists();
   redirect("/tierlist?restore=ok");
 }

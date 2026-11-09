@@ -25,6 +25,8 @@ export interface TitleCard {
   name: string;
   kind: Kind;
   cover: string;
+  universe: Universe;
+  year: number | null;
 }
 
 export interface RankedTitle extends TitleCard {
@@ -87,6 +89,8 @@ function toCard(row: Record<string, unknown>): TitleCard {
     name: String(row.name),
     kind: row.kind as Kind,
     cover: String(row.cover),
+    universe: row.universe as Universe,
+    year: row.year == null ? null : Number(row.year),
   };
 }
 
@@ -109,7 +113,7 @@ export async function getRanking({ universe = "reading", kind, genre }: RankingF
          r AS (SELECT title_id, COUNT(*)::int AS votes,
                       SUM(CASE tier WHEN 'S' THEN 5 WHEN 'A' THEN 4 WHEN 'B' THEN 3 WHEN 'C' THEN 2 ELSE 1 END)::int AS total
                FROM ratings WHERE tier IS NOT NULL GROUP BY title_id)
-    SELECT t.id, t.slug, t.name, t.kind, t.cover,
+    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year,
            COALESCE(m.n, 0) AS mentions, COALESCE(r.votes, 0) AS votes, COALESCE(r.total, 0) AS total
     FROM titles t LEFT JOIN m ON m.title_id = t.id LEFT JOIN r ON r.title_id = t.id
     WHERE (m.n > 0 OR r.votes > 0) AND t.universe = ${universe}
@@ -200,9 +204,11 @@ export async function searchTitles(query: string, limit = 24, universes: Univers
     .trim();
   if (normalized.length < 2) return [];
   const rows = await sql`
-    SELECT id, slug, name, kind, cover FROM titles
-    WHERE search ILIKE ${"%" + normalized + "%"} AND universe IN ${sql(universes)}
-    ORDER BY popularity DESC LIMIT ${limit}
+    WITH top AS (SELECT universe, GREATEST(MAX(popularity), 1) AS m FROM titles GROUP BY universe)
+    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year FROM titles t JOIN top USING (universe)
+    WHERE t.search ILIKE ${"%" + normalized + "%"} AND t.universe IN ${sql(universes)}
+    -- IGDB rating counts are ~100x smaller than AniList popularity: rank each universe on its own scale
+    ORDER BY t.popularity::float / top.m DESC LIMIT ${limit}
   `;
   return rows.map(toCard);
 }
@@ -284,8 +290,23 @@ export async function similarTitles(titleId: number, limit = 12): Promise<Recomm
 
 export async function getCards(ids: number[]): Promise<Map<number, TitleCard>> {
   if (ids.length === 0) return new Map();
-  const rows = await sql`SELECT id, slug, name, kind, cover FROM titles WHERE id IN ${sql(ids)}`;
+  const rows = await sql`SELECT id, slug, name, kind, cover, universe, year FROM titles WHERE id IN ${sql(ids)}`;
   return new Map(rows.map((r) => [Number(r.id), toCard(r)]));
+}
+
+// How many ranked titles each genre has, to only offer filters that show something
+export async function getRankedGenreCounts(universe: Universe): Promise<Map<string, number>> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(RATINGS_TAG);
+
+  const rows = await sql`
+    SELECT g, COUNT(*)::int AS n FROM titles t, jsonb_array_elements_text(t.genres) g
+    WHERE t.universe = ${universe}
+      AND (t.id IN (SELECT title_id FROM mentions) OR t.id IN (SELECT title_id FROM ratings WHERE tier IS NOT NULL))
+    GROUP BY g
+  `;
+  return new Map(rows.map((r) => [String(r.g), Number(r.n)]));
 }
 
 export async function getGenres(ids: number[]): Promise<Map<number, string[]>> {
@@ -303,7 +324,7 @@ export interface LibraryEntry {
 // universe null = the whole list, every universe
 export async function getLibrary(userId: string, universe: Universe | null = "reading"): Promise<LibraryEntry[]> {
   const rows = await sql`
-    SELECT t.id, t.slug, t.name, t.kind, t.cover, r.tier, r.state FROM ratings r JOIN titles t ON t.id = r.title_id
+    SELECT t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.year, r.tier, r.state FROM ratings r JOIN titles t ON t.id = r.title_id
     WHERE r.user_id = ${userId} AND (${universe}::text IS NULL OR t.universe = ${universe}) ORDER BY r.updated_at
   `;
   return rows.map((r) => ({ title: toCard(r), tier: (r.tier as Tier | null) ?? null, state: r.state as LibraryState }));

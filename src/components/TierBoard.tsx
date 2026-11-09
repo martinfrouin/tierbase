@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { clearTiers, search, setEntry } from "@/app/actions";
 import type { TitleCard, Tier } from "@/lib/data";
 import { KINDS, type Kind } from "@/lib/kinds";
+import { UNIVERSE_CONFIG, type Universe } from "@/lib/universes";
 
 const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
 const POOL = "pool";
@@ -18,9 +19,18 @@ interface Props {
   pool: TitleCard[];
   editable: boolean;
   shareUrl?: string;
+  universe?: Universe;
 }
 
-export default function TierBoard({ placed, wantToRead = [], pool: initialPool, editable, shareUrl }: Props) {
+export default function TierBoard({
+  placed,
+  wantToRead = [],
+  pool: initialPool,
+  editable,
+  shareUrl,
+  universe = "reading",
+}: Props) {
+  const config = UNIVERSE_CONFIG[universe];
   const [tiers, setTiers] = useState<Record<Tier, TitleCard[]>>(() => {
     const byTier = { S: [], A: [], B: [], C: [], D: [] } as Record<Tier, TitleCard[]>;
     for (const { title, tier } of placed) byTier[tier].push(title);
@@ -65,8 +75,8 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
     setWant((prev) => prev.filter((x) => !clearedIds.has(x.id)));
     setPool((prev) => [...cleared, ...prev]);
     try {
-      await clearTiers(kind);
-      track("Tier list cleared", { kind: kind ?? "all" });
+      await clearTiers(kind, universe);
+      track("Tier list cleared", { kind: kind ?? "all", universe });
     } catch {
       notify("Couldn't clear, try again");
     }
@@ -106,7 +116,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
     setQuery(value);
     latestQuery.current = value;
     if (value.trim().length < 2) return;
-    const found = await search(value);
+    const found = await search(value, [universe]);
     if (latestQuery.current !== value) return;
     const placedIds = new Set([...Object.values(tiers).flat(), ...want].map((t) => t.id));
     setPool((prev) => [...found.filter((t) => !placedIds.has(t.id)), ...prev.filter((p) => !found.some((f) => f.id === p.id))]);
@@ -115,7 +125,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
   const copy = async (text: string, message: string, event: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      track(event, { kind: kind ?? "all" });
+      track(event, { kind: kind ?? "all", universe });
       notify(message);
     } catch {
       notify("Copy failed");
@@ -135,7 +145,7 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
       link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "tier-list.png";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      track("Image downloaded", { kind: kind ?? "all" });
+      track("Image downloaded", { kind: kind ?? "all", universe });
     } catch {
       notify("Couldn't generate the image");
     } finally {
@@ -218,11 +228,13 @@ export default function TierBoard({ placed, wantToRead = [], pool: initialPool, 
 
           <section className="pool-section">
             <h2>
-              Want to read <span className="muted">({want.length})</span>
+              {config.want} <span className="muted">({want.length})</span>
             </h2>
             <div className={selected ? "pool want target" : "pool want"} {...dropProps(WANT)}>
               {want.length === 0 ? (
-                <span className="muted pool-empty">Titles you mark &quot;Want to read&quot; land here, ready to rank once you&apos;ve read them.</span>
+                <span className="muted pool-empty">
+                  Titles you mark &quot;{config.want}&quot; land here, ready to rank once you&apos;ve {config.past} them.
+                </span>
               ) : (
                 shown(want).map(card)
               )}

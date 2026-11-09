@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { setEntry } from "@/app/actions";
 import type { LibraryState, Tier } from "@/lib/data";
+import { UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 
 type Choice = {
   emoji: string;
-  label: string;
+  // Missing for "want", labelled per universe: "Want to read" / "Want to play"
+  label?: string;
   entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> };
 };
 
@@ -18,16 +20,18 @@ const CHOICES: Choice[] = [
   { emoji: "👍", label: "Good", entry: { tier: "B" } },
   { emoji: "😐", label: "Okay", entry: { tier: "C" } },
   { emoji: "👎", label: "Disliked", entry: { tier: "D" } },
-  { emoji: "🧐", label: "Want to read", entry: { state: "want" } },
+  { emoji: "🧐", entry: { state: "want" } },
   { emoji: "🚫", label: "Not for me", entry: { state: "skip" } },
 ];
 
 interface Props {
   titleId: number;
   current?: { tier: Tier | null; state: LibraryState } | null;
+  universe?: Universe;
 }
 
-export default function RateButtons({ titleId, current }: Props) {
+export default function RateButtons({ titleId, current, universe = "reading" }: Props) {
+  const config = UNIVERSE_CONFIG[universe];
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -45,17 +49,17 @@ export default function RateButtons({ titleId, current }: Props) {
       <div className={pending ? "rate-buttons pending" : "rate-buttons"}>
         {CHOICES.map((choice) => (
           <button
-            key={choice.label}
+            key={choice.emoji}
             className={isCurrent(choice) ? "chip active" : "chip"}
             disabled={pending}
             onClick={() => choose(choice)}
           >
-            <span aria-hidden>{choice.emoji}</span> {choice.label}
+            <span aria-hidden>{choice.emoji}</span> {choice.label ?? config.want}
           </button>
         ))}
       </div>
       {current?.tier && (
-        <Link href="/tierlist" className="rate-note">
+        <Link href={universePath(universe, "/tierlist")} className="rate-note">
           Saved in your tier list as {current.tier}. Rank more to sharpen your recommendations →
         </Link>
       )}

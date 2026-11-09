@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { universePath, type Universe } from "@/lib/universes";
 
-export default function TierListNudge({ ranked }: { ranked: number }) {
+export default function TierListNudge({ ranked, universe = "reading" }: { ranked: number; universe?: Universe }) {
   return (
     <aside className="nudge">
       <div>
@@ -9,7 +10,7 @@ export default function TierListNudge({ ranked }: { ranked: number }) {
           {ranked} title{ranked === 1 ? "" : "s"} in your tier list. Anything you rank is never recommended again.
         </p>
       </div>
-      <Link href="/tierlist" className="button primary">
+      <Link href={universePath(universe, "/tierlist")} className="button primary">
         Rank more titles
       </Link>
     </aside>

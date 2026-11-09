@@ -11,7 +11,8 @@ interface Rule {
   keywords?: string[];
 }
 
-// Site genres, in display order. Players don't separate roguelikes from roguelites in tier lists, so one genre covers both.
+// Site genres, in display order (src/lib/game-genres.ts repeats the names for the UI: keep both in sync).
+// Players don't separate roguelikes from roguelites in tier lists, so one genre covers both.
 export const GAME_GENRE_RULES: Rule[] = [
   {
     genre: "Roguelite",

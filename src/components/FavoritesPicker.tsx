@@ -5,10 +5,18 @@ import { useRef, useState, useTransition } from "react";
 import Cover from "@/components/Cover";
 import { saveFavorites, search } from "@/app/actions";
 import type { TitleCard } from "@/lib/data";
+import { UNIVERSE_CONFIG, type Universe } from "@/lib/universes";
 
 const MIN_PICKS = 3;
 
-export default function FavoritesPicker({ suggestions }: { suggestions: TitleCard[] }) {
+export default function FavoritesPicker({
+  suggestions,
+  universe = "reading",
+}: {
+  suggestions: TitleCard[];
+  universe?: Universe;
+}) {
+  const config = UNIVERSE_CONFIG[universe];
   const [picked, setPicked] = useState<TitleCard[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TitleCard[] | null>(null);
@@ -23,7 +31,7 @@ export default function FavoritesPicker({ suggestions }: { suggestions: TitleCar
     setQuery(value);
     latestQuery.current = value;
     if (value.trim().length < 2) return setResults(null);
-    const found = await search(value);
+    const found = await search(value, [universe]);
     // Ignore responses for a query the user already moved past
     if (latestQuery.current === value) setResults(found);
   };
@@ -31,7 +39,7 @@ export default function FavoritesPicker({ suggestions }: { suggestions: TitleCar
   const submit = () =>
     startSaving(async () => {
       await saveFavorites(picked.map((t) => t.id));
-      track("Favorites picked", { count: picked.length });
+      track("Favorites picked", { count: picked.length, universe });
       // saveFavorites refreshes this page, which now shows the recommendations
       window.scrollTo({ top: 0 });
     });
@@ -44,13 +52,13 @@ export default function FavoritesPicker({ suggestions }: { suggestions: TitleCar
         <input
           className="search"
           type="search"
-          placeholder="Search any manga, manhwa or manhua…"
+          placeholder={config.searchPlaceholder}
           value={query}
           onChange={(e) => onSearch(e.target.value)}
         />
         <button className="button primary" disabled={picked.length < MIN_PICKS || saving} onClick={submit}>
           {saving
-            ? "Finding your next reads…"
+            ? `Finding your next ${config.nextPlural}…`
             : picked.length < MIN_PICKS
               ? `Pick ${MIN_PICKS - picked.length} more`
               : `Get my recommendations (${picked.length})`}
