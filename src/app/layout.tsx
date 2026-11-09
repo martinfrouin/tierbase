@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Geist } from "next/font/google";
 import { cacheLife } from "next/cache";
+import HeaderSearch from "@/components/HeaderSearch";
 import { sql } from "@/lib/db";
 import { REPO_URL, SITE_NAME, SITE_URL, SPONSOR_URL } from "@/lib/site";
 import "./globals.css";
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </span>
           </Link>
           <nav>
+            <HeaderSearch />
             <Link href="/for-you">For you</Link>
             <Link href="/ranking">Ranking</Link>
             <Link href="/tierlist" className="nav-cta">
