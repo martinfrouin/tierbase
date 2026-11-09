@@ -24,6 +24,7 @@ interface CatalogEntry {
   cover: string;
   universe?: Universe;
   igdb?: IgdbTags;
+  released?: number | null;
 }
 
 interface Thread {
@@ -150,6 +151,7 @@ const titleRows = [...catalog]
       url: t.url,
       popularity: t.popularity,
       universe: t.universe!,
+      year: t.released ?? null,
     };
   });
 
@@ -160,7 +162,7 @@ for (let i = 0; i < titleRows.length; i += CHUNK) {
       description = excluded.description,
       search = excluded.search, kind = excluded.kind, origin = excluded.origin, status = excluded.status,
       genres = excluded.genres, cover = excluded.cover, url = excluded.url, popularity = excluded.popularity,
-      universe = excluded.universe
+      universe = excluded.universe, year = excluded.year
   `;
 }
 

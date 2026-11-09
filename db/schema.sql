@@ -24,6 +24,8 @@ CREATE INDEX IF NOT EXISTS titles_search ON titles USING gin (search gin_trgm_op
 ALTER TABLE titles ADD COLUMN IF NOT EXISTS universe TEXT NOT NULL DEFAULT 'reading';
 ALTER TABLE titles DROP CONSTRAINT IF EXISTS titles_slug_key;
 CREATE UNIQUE INDEX IF NOT EXISTS titles_universe_slug ON titles (universe, slug);
+-- First release year, for games (tells remakes and remasters apart)
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS year INTEGER;
 
 CREATE TABLE IF NOT EXISTS threads (
   id TEXT PRIMARY KEY,
