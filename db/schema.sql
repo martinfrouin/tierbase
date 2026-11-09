@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS mentions (
   PRIMARY KEY (comment_id, title_id)
 );
 CREATE INDEX IF NOT EXISTS mentions_title ON mentions(title_id);
+-- Deleting threads checks the mentions that point to them: without this index, each thread scans every mention
+CREATE INDEX IF NOT EXISTS mentions_thread ON mentions(thread_id);
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY,
