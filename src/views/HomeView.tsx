@@ -117,7 +117,7 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
                     {r.readers > 1 ? config.people : config.person} who share your taste
                   </p>
                   <Because titles={r.because} />
-                  <RateButtons titleId={r.title.id} universe={universe} wantFirst />
+                  <RateButtons titleId={r.title.id} universe={universe} />
                 </div>
               </li>
             ))}
