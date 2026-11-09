@@ -31,7 +31,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Contact messages</strong> sent from the <Link href="/contact">contact page</Link>, with the email
-          you leave if you want an answer. They are only read to answer you and deleted once handled.
+          you leave if you want an answer. They are forwarded by email (sent through Resend) to be read and answered, and
+          deleted once handled.
         </li>
         <li>
           <strong>Technical logs</strong> (IP address, requests) kept by the hosts for security and debugging.

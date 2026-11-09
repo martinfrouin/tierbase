@@ -1,7 +1,10 @@
 "use server";
 
+import { after } from "next/server";
+import { Resend } from "resend";
 import { MAX_BODY, SUBJECTS, type ContactState, type Subject } from "@/lib/contact";
 import { sql } from "@/lib/db";
+import { CONTACT_EMAIL, SITE_NAME } from "@/lib/site";
 import { ensureUserId } from "@/lib/user";
 
 const MAX_PER_USER_PER_HOUR = 5;
@@ -9,6 +12,20 @@ const MAX_PER_USER_PER_HOUR = 5;
 const MAX_PER_DAY = 100;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SENT: ContactState = { status: "sent", message: "Thanks, your message was sent." };
+const SUBJECT_LABELS: Record<Subject, string> = { "missing-title": "Missing title", bug: "Bug", other: "Other" };
+
+// Forwards the message to the contact inbox; the database copy stays the source of truth if this fails
+async function notify(subject: Subject, body: string, email: string) {
+  if (!process.env.RESEND_API_KEY) return;
+  const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+    from: `${SITE_NAME} <noreply@tierbase.io>`,
+    to: CONTACT_EMAIL,
+    subject: `[${SITE_NAME}] ${SUBJECT_LABELS[subject]}`,
+    text: `${body}\n\n— ${email || "No email left"}`,
+    replyTo: email || undefined,
+  });
+  if (error) console.error("Contact email failed", error);
+}
 
 export async function sendContactMessage(prev: ContactState, form: FormData): Promise<ContactState> {
   // Honeypot: hidden from people, filled by bots. Pretend it worked.
@@ -44,6 +61,8 @@ export async function sendContactMessage(prev: ContactState, form: FormData): Pr
       INSERT INTO contact_messages (user_id, subject, email, body)
       VALUES (${userId}, ${subject}, ${email || null}, ${body})
     `;
+    // After the response: the visitor doesn't wait for the email to go out
+    after(() => notify(subject as Subject, body, email));
     return SENT;
   } catch {
     return error("Couldn't send your message, try again in a moment.");
