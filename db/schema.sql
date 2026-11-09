@@ -87,12 +87,39 @@ CREATE INDEX IF NOT EXISTS ratings_title ON ratings(title_id);
 -- A "basket" is a set of titles one person likes: everything a Reddit user cited, or a site user's S/A titles.
 -- Grouping by Reddit author keeps a list pasted in many threads from counting many times.
 -- Baskets are per universe: liking Solo Leveling and Hades says nothing about manga readers' taste in games.
-CREATE OR REPLACE VIEW baskets AS
-  SELECT DISTINCT 'r:' || m.author || ':' || t.universe AS basket, m.title_id
-  FROM mentions m JOIN titles t ON t.id = m.title_id
-  UNION ALL
+-- A pair from a 3-title basket says more than one from a 70-title list: w = 1 / sqrt(basket size).
+--
+-- Reddit baskets only change when the seed runs, so it stores them with their weight here, indexed by title:
+-- recommendations read the few baskets holding the liked titles instead of rebuilding all of them on every visit.
+CREATE TABLE IF NOT EXISTS reddit_baskets (
+  basket TEXT NOT NULL,
+  title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+  w DOUBLE PRECISION NOT NULL,
+  PRIMARY KEY (basket, title_id)
+);
+CREATE INDEX IF NOT EXISTS reddit_baskets_title ON reddit_baskets(title_id);
+-- First run after this table appeared: fill it now, so recommendations don't go empty until the seed rebuilds it
+INSERT INTO reddit_baskets (basket, title_id, w)
+  SELECT basket, title_id, 1 / sqrt(COUNT(*) OVER (PARTITION BY basket)) FROM (
+    SELECT DISTINCT 'r:' || m.author || ':' || t.universe AS basket, m.title_id
+    FROM mentions m JOIN titles t ON t.id = m.title_id
+  ) d
+  WHERE NOT EXISTS (SELECT 1 FROM reddit_baskets);
+
+-- Site users' baskets follow their votes live; they are small
+CREATE OR REPLACE VIEW user_baskets AS
   SELECT 'u:' || r.user_id || ':' || t.universe AS basket, r.title_id
   FROM ratings r JOIN titles t ON t.id = r.title_id WHERE r.tier IN ('S', 'A');
+
+CREATE OR REPLACE VIEW baskets AS
+  SELECT basket, title_id FROM reddit_baskets
+  UNION ALL
+  SELECT basket, title_id FROM user_baskets;
+
+CREATE OR REPLACE VIEW weighted_baskets AS
+  SELECT basket, title_id, w FROM reddit_baskets
+  UNION ALL
+  SELECT basket, title_id, 1 / sqrt(COUNT(*) OVER (PARTITION BY basket)) FROM user_baskets;
 
 -- Messages sent from /contact. user_id only serves rate limiting and goes with the account.
 CREATE TABLE IF NOT EXISTS contact_messages (

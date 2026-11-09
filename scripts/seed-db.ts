@@ -204,7 +204,7 @@ for (const file of readdirSync(join(ROOT, "data/cache/threads")).filter((f) => f
 
 // Single transaction so the site never sees a half-seeded Reddit dataset
 await sql.begin(async (tx) => {
-  await tx`TRUNCATE mentions, threads`;
+  await tx`TRUNCATE mentions, threads, reddit_baskets`;
   if (mergedInto.size) {
     const from = [...mergedInto.keys()];
     const to = [...mergedInto.values()];
@@ -227,6 +227,14 @@ await sql.begin(async (tx) => {
   `;
   for (let i = 0; i < threadRows.length; i += CHUNK) await tx`INSERT INTO threads ${tx(threadRows.slice(i, i + CHUNK))}`;
   for (let i = 0; i < mentionRows.length; i += CHUNK) await tx`INSERT INTO mentions ${tx(mentionRows.slice(i, i + CHUNK))}`;
+  // Weighted Reddit baskets for recommendations (see db/schema.sql)
+  await tx`
+    INSERT INTO reddit_baskets (basket, title_id, w)
+    SELECT basket, title_id, 1 / sqrt(COUNT(*) OVER (PARTITION BY basket)) FROM (
+      SELECT DISTINCT 'r:' || m.author || ':' || t.universe AS basket, m.title_id
+      FROM mentions m JOIN titles t ON t.id = m.title_id
+    ) d
+  `;
 });
 
 console.log(
