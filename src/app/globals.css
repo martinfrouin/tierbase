@@ -1247,3 +1247,22 @@ a.chip {
   color: #111;
   text-decoration: none;
 }
+
+.contact-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 560px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border-color: var(--accent);
+}
+
+.contact-sent strong {
+  font-size: 18px;
+}
+
+.contact-sent p {
+  margin: 0;
+}

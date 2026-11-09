@@ -25,21 +25,28 @@ async function notify(subject: Subject, body: string, email: string) {
     replyTo: email || undefined,
   });
   if (error) console.error("Contact email failed", error);
+  else console.info("Contact email sent");
 }
 
 export async function sendContactMessage(prev: ContactState, form: FormData): Promise<ContactState> {
   // Honeypot: hidden from people, filled by bots. Pretend it worked.
-  if (String(form.get("website") ?? "")) return SENT;
+  if (String(form.get("hp_extra") ?? "")) {
+    console.info("Contact message dropped: honeypot filled");
+    return SENT;
+  }
 
   const subject = String(form.get("subject") ?? "");
   const body = String(form.get("body") ?? "").trim();
   const email = String(form.get("email") ?? "").trim();
-  const error = (message: string): ContactState => ({
-    status: "error",
-    message,
-    values: { subject, body, email },
-    attempt: (prev.attempt ?? 0) + 1,
-  });
+  const error = (message: string): ContactState => {
+    console.info(`Contact message refused: ${message}`);
+    return {
+      status: "error",
+      message,
+      values: { subject, body, email },
+      attempt: (prev.attempt ?? 0) + 1,
+    };
+  };
 
   if (!SUBJECTS.includes(subject as Subject)) return error("Pick a subject.");
   if (body.length < 5) return error("Write a few words.");
@@ -63,8 +70,10 @@ export async function sendContactMessage(prev: ContactState, form: FormData): Pr
     `;
     // After the response: the visitor doesn't wait for the email to go out
     after(() => notify(subject as Subject, body, email));
+    console.info("Contact message saved");
     return SENT;
-  } catch {
+  } catch (e) {
+    console.error("Contact message failed", e);
     return error("Couldn't send your message, try again in a moment.");
   }
 }
