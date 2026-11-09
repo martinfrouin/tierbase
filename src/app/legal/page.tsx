@@ -8,7 +8,7 @@ export default function LegalPage() {
   return (
     <article className="legal">
       <h1>Legal notice</h1>
-      <p className="muted">Last updated: 20 October 2026</p>
+      <p className="muted">Last updated: 9 November 2026</p>
 
       <h2>Publisher</h2>
       <p>
@@ -25,13 +25,14 @@ export default function LegalPage() {
 
       <h2>Data sources</h2>
       <p>
-        Titles, covers and genres come from <a href="https://anilist.co">AniList</a>. Covers and titles belong to their
+        Manga, manhwa and manhua titles, covers and genres come from <a href="https://anilist.co">AniList</a>; video
+        game titles, covers and genres come from <a href="https://www.igdb.com">IGDB</a>. Covers and titles belong to their
         respective authors and publishers and are shown only to identify each work, with a link to its source.
       </p>
       <p>
         Reddit mentions come from public comments in recommendation threads, collected through the{" "}
         <a href="https://arctic-shift.photon-reddit.com">Arctic Shift</a> archive. Each quote is a short excerpt linked
-        to the original thread. {SITE_NAME} is not affiliated with Reddit or AniList.
+        to the original thread. {SITE_NAME} is not affiliated with Reddit, AniList, IGDB or Twitch.
       </p>
 
       <h2>Removal requests</h2>

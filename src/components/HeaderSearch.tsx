@@ -6,12 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import { search } from "@/app/actions";
 import Cover from "@/components/Cover";
 import type { TitleCard } from "@/lib/data";
-import { KINDS } from "@/lib/kinds";
+import { kindLabel } from "@/lib/kinds";
+import { titleHref } from "@/lib/universes";
 
 const DEBOUNCE_MS = 200;
 const MAX_RESULTS = 8;
-
-const kindLabel = (kind: string) => KINDS.find((k) => k.value === kind)?.label ?? kind;
 
 export default function HeaderSearch() {
   const router = useRouter();
@@ -58,7 +57,7 @@ export default function HeaderSearch() {
     setSearching(true);
     timer.current = setTimeout(async () => {
       try {
-        const found = await search(value);
+        const found = await search(value, ["reading", "games"]);
         if (latest.current !== value) return;
         setResults(found.slice(0, MAX_RESULTS));
         setActive(0);
@@ -70,7 +69,7 @@ export default function HeaderSearch() {
 
   const go = (title: TitleCard) => {
     close();
-    router.push(`/title/${title.slug}`);
+    router.push(titleHref(title));
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -101,7 +100,7 @@ export default function HeaderSearch() {
             <input
               autoFocus
               className="search"
-              placeholder="Search a title…"
+              placeholder="Search manga, manhwa, manhua or games…"
               value={query}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={onKeyDown}
@@ -123,7 +122,10 @@ export default function HeaderSearch() {
                     onClick={() => go(t)}
                   >
                     <Cover src={t.cover} size="small" />
-                    <span>{t.name}</span>
+                    <span>
+                      {t.name}
+                      {t.year && t.universe === "games" && <span className="muted"> ({t.year})</span>}
+                    </span>
                     <small className="muted">{kindLabel(t.kind)}</small>
                   </li>
                 ))}

@@ -108,7 +108,7 @@ Each step can be deployed on its own.
 1. **Header search + contact form**: independent of games.
 2. **Schema + games pipeline**: migration, `sync-games`, derived genres, game subreddits, seed by universe, data layer filtered by universe (Reading behaves exactly as before).
 3. **Games UI**: universe config, shared page components, `/games/*` and `/game/*` routes, header switch, universe-aware search badges.
-4. **Genre SEO pages + sitemap**.
+4. ~~**Genre SEO pages + sitemap**~~: folded into step 3 (genre rankings use `?genre=` with their own title and canonical URL, listed in the sitemap).
 
 ## Out of scope
 

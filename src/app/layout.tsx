@@ -2,9 +2,10 @@ import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Geist } from "next/font/google";
 import { cacheLife } from "next/cache";
-import HeaderSearch from "@/components/HeaderSearch";
+import SiteNav, { SiteNavLinks } from "@/components/SiteNav";
 import { sql } from "@/lib/db";
 import { REPO_URL, SITE_NAME, SITE_URL, SPONSOR_URL } from "@/lib/site";
 import "./globals.css";
@@ -19,16 +20,15 @@ export const metadata: Metadata = {
     default: `${SITE_NAME} — find your next manhwa, manga or manhua`,
     template: `%s · ${SITE_NAME}`,
   },
-  description: "Personal manga, manhwa and manhua recommendations built from what Reddit readers actually recommend.",
+  description:
+    "Personal manga, manhwa, manhua and video game recommendations and tier lists, built from what Reddit actually recommends.",
 };
 
 async function Stats() {
   "use cache";
   cacheLife("hours");
   const [stats] = await sql`
-    SELECT (SELECT COUNT(DISTINCT m.comment_id)::int FROM mentions m JOIN threads th ON th.id = m.thread_id
-            WHERE th.universe = 'reading') AS comments,
-           (SELECT COUNT(*)::int FROM threads WHERE universe = 'reading') AS threads
+    SELECT (SELECT COUNT(DISTINCT comment_id)::int FROM mentions) AS comments, (SELECT COUNT(*)::int FROM threads) AS threads
   `;
   return (
     <>
@@ -37,6 +37,14 @@ async function Stats() {
     </>
   );
 }
+
+const github = (
+  <a href={REPO_URL} target="_blank" rel="noreferrer" className="nav-icon" aria-label="Source code on GitHub">
+    <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden fill="currentColor">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  </a>
+);
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -49,24 +57,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Tier<span className="brand-gradient">Base</span>
             </span>
           </Link>
-          <nav>
-            <HeaderSearch />
-            <Link href="/ranking">Ranking</Link>
-            <Link href="/tierlist" className="nav-cta">
-              My tier list
-            </Link>
-            <a href={REPO_URL} target="_blank" rel="noreferrer" className="nav-icon" aria-label="Source code on GitHub">
-              <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-            </a>
-          </nav>
+          <Suspense fallback={<SiteNavLinks universe="reading">{github}</SiteNavLinks>}>
+            <SiteNav>{github}</SiteNav>
+          </Suspense>
         </header>
         <main>{children}</main>
         <footer className="site-footer">
           <Stats />
           <p>
-            Free and open source. If it found you a good read,{" "}
+            Free and open source. If it found you a good read or game,{" "}
             <a href={SPONSOR_URL} target="_blank" rel="noreferrer">
               buy me a coffee ☕
             </a>
@@ -76,6 +75,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/privacy">Privacy</Link> · Data from{" "}
             <a href="https://anilist.co" target="_blank" rel="noreferrer">
               AniList
+            </a>
+            ,{" "}
+            <a href="https://www.igdb.com" target="_blank" rel="noreferrer">
+              IGDB
             </a>{" "}
             and Reddit
           </p>

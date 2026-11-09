@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           back. It is strictly necessary for the service, contains nothing about you, and expires after two years.
         </li>
         <li>
-          <strong>Your ratings</strong>: the titles you rank, want to read or skip. They also feed the global ranking
+          <strong>Your ratings</strong>: the titles and games you rank, want to read or play, or skip. They also feed the global ranking
           and other readers&apos; recommendations, without anything that identifies you.
         </li>
         <li>

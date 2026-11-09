@@ -34,6 +34,7 @@ Postgres, in Docker locally (`docker-compose.yml`). Schema in `db/schema.sql`.
 ## Deployment
 
 - **Site**: Vercel, deployed on every push to `main` by the Git integration. `DATABASE_URL` points to the VM with `?sslmode=require`.
+- **Schema changes**: Vercel prerenders pages against the production database during the build, so ship a migration (`db/schema.sql`, applied by the worker's startup seed) in its own push and wait for the VM deploy before pushing site code that uses it.
 - **Database and sync worker**: a VM running `compose.prod.yml` (Postgres with TLS required for outside connections, plus the daily sync worker). `.github/workflows/deploy-vm.yml` rsyncs the worker files and restarts the stack when they change. The VM keeps `.env` (`POSTGRES_PASSWORD`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`), `certs/` (self-signed TLS certificate) and `data/cache/` between deploys.
 
 ## Stats
