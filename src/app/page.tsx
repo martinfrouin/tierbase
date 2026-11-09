@@ -34,7 +34,7 @@ export default function Landing() {
   return (
     <>
       <section className="hero">
-        <h1>Find your next read or game</h1>
+        <h1>Find your next favorite</h1>
         <p className="muted">
           Pick a few favorites, get recommendations from people with the same taste, and build tier lists worth
           sharing.

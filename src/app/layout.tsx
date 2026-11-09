@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   openGraph: { siteName: SITE_NAME, type: "website" },
   twitter: { card: "summary_large_image" },
   title: {
-    default: `${SITE_NAME} — find your next read or game`,
+    default: `${SITE_NAME} — tier lists and recommendations`,
     template: `%s · ${SITE_NAME}`,
   },
   description:
-    "Personal manga, manhwa, manhua and video game recommendations and tier lists, built from what Reddit actually recommends.",
+    "Personal recommendations and tier lists, built from what Reddit actually recommends and refined by everyone's votes.",
 };
 
 async function Stats() {
@@ -65,7 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="site-footer">
           <Stats />
           <p>
-            Free and open source. If it found you a good read or game,{" "}
+            Free and open source. If it found you something good,{" "}
             <a href={SPONSOR_URL} target="_blank" rel="noreferrer">
               buy me a coffee ☕
             </a>
