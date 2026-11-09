@@ -83,3 +83,14 @@ CREATE OR REPLACE VIEW baskets AS
   SELECT DISTINCT 'r:' || author AS basket, title_id FROM mentions
   UNION ALL
   SELECT 'u:' || user_id AS basket, title_id FROM ratings WHERE tier IN ('S', 'A');
+
+-- Messages sent from /contact. user_id only serves rate limiting and goes with the account.
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  subject TEXT NOT NULL CHECK (subject IN ('missing-title', 'bug', 'other')),
+  email TEXT,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS contact_messages_created ON contact_messages(created_at);
