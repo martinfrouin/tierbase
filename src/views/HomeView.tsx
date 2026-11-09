@@ -117,7 +117,7 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
                     {r.readers > 1 ? config.people : config.person} who share your taste
                   </p>
                   <Because titles={r.because} />
-                  <RateButtons titleId={r.title.id} universe={universe} />
+                  <RateButtons titleId={r.title.id} universe={universe} wantFirst />
                 </div>
               </li>
             ))}
@@ -127,8 +127,8 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
 
       {unranked.length > 0 && (
         <>
-          <h2>Have you {config.past} these?</h2>
-          <p className="muted">Popular {noun} not in your tier list yet. One tap adds them.</p>
+          <h2>Already {config.past} these?</h2>
+          <p className="muted">Popular {noun} not in your tier list yet. Rate them to sharpen your recommendations.</p>
           <ol className="rec-list">
             {unranked.map((t) => (
               <li key={t.id} className="rec compact">

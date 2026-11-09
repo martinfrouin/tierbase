@@ -24,13 +24,17 @@ const CHOICES: Choice[] = [
   { emoji: "🚫", label: "Not for me", entry: { state: "skip" } },
 ];
 
+const WANT = CHOICES.find((c) => "state" in c.entry && c.entry.state === "want")!;
+
 interface Props {
   titleId: number;
   current?: { tier: Tier | null; state: LibraryState } | null;
   universe?: Universe;
+  // For recommendations, which people mostly haven't read or played yet: "Want to…" comes first and stands out
+  wantFirst?: boolean;
 }
 
-export default function RateButtons({ titleId, current, universe = "reading" }: Props) {
+export default function RateButtons({ titleId, current, universe = "reading", wantFirst = false }: Props) {
   const config = UNIVERSE_CONFIG[universe];
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -47,10 +51,16 @@ export default function RateButtons({ titleId, current, universe = "reading" }: 
   return (
     <>
       <div className={pending ? "rate-buttons pending" : "rate-buttons"}>
-        {CHOICES.map((choice) => (
+        {(wantFirst ? [WANT, ...CHOICES.filter((c) => c !== WANT)] : CHOICES).map((choice) => (
           <button
             key={choice.emoji}
-            className={isCurrent(choice) ? "chip active" : "chip"}
+            className={[
+              "chip",
+              isCurrent(choice) && "active",
+              wantFirst && choice === WANT && "chip-want",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             disabled={pending}
             onClick={() => choose(choice)}
           >
