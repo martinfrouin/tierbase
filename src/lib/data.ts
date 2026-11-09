@@ -106,7 +106,7 @@ export interface RankingFilter {
 }
 
 export async function getRanking({ universe = "reading", kind, genre }: RankingFilter = {}): Promise<RankedTitle[]> {
-  "use cache";
+  "use cache: remote";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
 
@@ -146,7 +146,7 @@ export async function getRanking({ universe = "reading", kind, genre }: RankingF
 }
 
 export async function getTitle(slug: string, universe: Universe = "reading"): Promise<TitleDetail | null> {
-  "use cache";
+  "use cache: remote";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
 
@@ -180,7 +180,7 @@ export async function getTitle(slug: string, universe: Universe = "reading"): Pr
 }
 
 export async function getQuotes(titleId: number, limit = 6): Promise<Quote[]> {
-  "use cache";
+  "use cache: remote";
   cacheLife("hours");
 
   const rows = await sql`
@@ -216,7 +216,7 @@ export async function searchTitles(query: string, limit = 24, universes: Univers
 }
 
 async function basketSizes(): Promise<Map<number, number>> {
-  "use cache";
+  "use cache: remote";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
 
@@ -284,7 +284,7 @@ export async function recommend(
 }
 
 export async function similarTitles(titleId: number, limit = 12): Promise<Recommendation[]> {
-  "use cache";
+  "use cache: remote";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
   return recommend([{ titleId, weight: 1 }], new Set(), { limit });
@@ -298,7 +298,7 @@ export async function getCards(ids: number[]): Promise<Map<number, TitleCard>> {
 
 // How many ranked titles each genre has, to only offer filters that show something
 export async function getRankedGenreCounts(universe: Universe): Promise<Map<string, number>> {
-  "use cache";
+  "use cache: remote";
   cacheLife("hours");
   cacheTag(RATINGS_TAG);
 
