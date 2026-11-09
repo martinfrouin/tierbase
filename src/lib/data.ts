@@ -234,11 +234,10 @@ export async function recommend(
   if (liked.length === 0) return [];
   const weights = new Map(liked.map((l) => [l.titleId, l.weight]));
 
-  // A pair from a 3-title comment says more than a pair from a 70-title list, so big baskets weigh less
+  // A pair from a 3-title comment says more than a pair from a 70-title list, so big baskets weigh less (see db/schema.sql)
   const rows = await sql`
-    WITH weighted AS (SELECT basket, title_id, 1 / sqrt(COUNT(*) OVER (PARTITION BY basket)) AS w FROM baskets)
     SELECT b1.title_id AS source, b2.title_id AS candidate, SUM(b1.w)::float AS together
-    FROM weighted b1 JOIN weighted b2 ON b1.basket = b2.basket AND b2.title_id <> b1.title_id
+    FROM weighted_baskets b1 JOIN baskets b2 ON b1.basket = b2.basket AND b2.title_id <> b1.title_id
     WHERE b1.title_id IN ${sql([...weights.keys()])} AND b1.basket <> ${skipBasket ?? ""}
     GROUP BY b1.title_id, b2.title_id
   `;

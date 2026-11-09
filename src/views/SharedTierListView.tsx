@@ -18,6 +18,7 @@ import { filtersInUse, matchesFilter, parseListFilter, type ListFilter } from "@
 import { DOWNLOAD_LAYOUT, imageHeight, OG_LAYOUT, TierImage, WIDTH } from "@/lib/tier-image";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
+import { TierBoardSkeleton } from "@/components/Skeletons";
 
 export const TIER_OG_SIZE = { width: 1200, height: 630 };
 
@@ -189,7 +190,7 @@ export default function SharedTierListView({
   searchParams: Promise<FilterParams>;
 }) {
   return (
-    <Suspense fallback={<p className="muted">Loading…</p>}>
+    <Suspense fallback={<TierBoardSkeleton />}>
       <SharedList universe={universe} params={params} searchParams={searchParams} />
     </Suspense>
   );

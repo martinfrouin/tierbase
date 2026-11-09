@@ -6,6 +6,7 @@ import { getRankedGenreCounts, getRanking, KINDS, scoreOutOf100, type Kind } fro
 import { GAME_GENRES, parseGenre, type GameGenre } from "@/lib/game-genres";
 import { parseKind } from "@/lib/kinds";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
+import { RankingSkeleton } from "@/components/Skeletons";
 
 export type RankingParams = { kind?: string; genre?: string; q?: string; page?: string };
 
@@ -175,7 +176,7 @@ export default function RankingView({ universe, searchParams }: { universe: Univ
           tier lists people build here. Scores are out of 100.
         </p>
       </section>
-      <Suspense fallback={<p className="muted">Loading the ranking…</p>}>
+      <Suspense fallback={<RankingSkeleton />}>
         <RankingList universe={universe} searchParams={searchParams} />
       </Suspense>
     </>

@@ -1161,3 +1161,73 @@ a.chip {
   gap: 6px;
   min-height: 60px;
 }
+
+/* Loading placeholders (src/components/Skeletons.tsx) */
+.skeleton {
+  display: block;
+  background: var(--surface-hover);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.skeleton-bar {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skeleton-cover {
+  width: 100%;
+  aspect-ratio: 120 / 170;
+}
+
+.skeleton-tile {
+  width: 100%;
+  aspect-ratio: 120 / 190;
+}
+
+.skeleton-block {
+  height: 64px;
+  margin: 16px 0 24px;
+  border-radius: 12px;
+}
+
+.skeleton-search {
+  flex: 1 1 220px;
+  height: 42px;
+  border-radius: 10px;
+}
+
+.skeleton-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.skeleton-chip {
+  width: 72px;
+  height: 30px;
+  border-radius: 999px;
+}
+
+.skeleton-lines .skeleton-chips {
+  margin-top: 4px;
+}

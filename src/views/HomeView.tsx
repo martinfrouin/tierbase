@@ -17,6 +17,7 @@ import {
 import { kindLabel } from "@/lib/kinds";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
+import { HomeSkeleton } from "@/components/Skeletons";
 
 const DASHBOARD_MIN_RANKED = 3;
 const SHOWN_SOURCES = 3;
@@ -173,7 +174,7 @@ async function HomeContent({ universe }: { universe: Universe }) {
 
 export default function HomeView({ universe }: { universe: Universe }) {
   return (
-    <Suspense fallback={<p className="muted">Loading…</p>}>
+    <Suspense fallback={<HomeSkeleton />}>
       <HomeContent universe={universe} />
     </Suspense>
   );

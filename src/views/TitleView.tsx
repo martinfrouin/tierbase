@@ -10,6 +10,7 @@ import { kindLabel } from "@/lib/kinds";
 import { SITE_URL } from "@/lib/site";
 import { titleHref, UNIVERSE_CONFIG, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
+import { TitleSkeleton } from "@/components/Skeletons";
 
 // "Manhwa like Solo Leveling" and "Games like Hades" are what people search for, so they lead the page title
 function likeHeading(title: TitleDetail) {
@@ -155,7 +156,7 @@ async function TitleContent({ universe, params }: { universe: Universe; params: 
 
 export default function TitleView({ universe, params }: { universe: Universe; params: Promise<{ slug: string }> }) {
   return (
-    <Suspense fallback={<p className="muted">Loading…</p>}>
+    <Suspense fallback={<TitleSkeleton />}>
       <TitleContent universe={universe} params={params} />
     </Suspense>
   );

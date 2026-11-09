@@ -6,6 +6,7 @@ import TierBoard from "@/components/TierBoard";
 import { getLibrary, getRanking, getShareInfo, type Tier } from "@/lib/data";
 import { UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
+import { TierBoardSkeleton } from "@/components/Skeletons";
 
 // Deep enough that a filter (manhua, roguelites…) still has plenty to suggest; the board shows the first ones
 const POOL_SIZE = 400;
@@ -76,7 +77,7 @@ export default function TierListView({
           image.
         </p>
       </section>
-      <Suspense fallback={<p className="muted">Loading your tier list…</p>}>
+      <Suspense fallback={<TierBoardSkeleton />}>
         <MyBoard universe={universe} />
       </Suspense>
     </>
