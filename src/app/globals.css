@@ -17,6 +17,11 @@
   box-sizing: border-box;
 }
 
+/* Keeps room for the scrollbar: otherwise a short loading state hides it and the centered page jumps sideways */
+html {
+  scrollbar-gutter: stable;
+}
+
 html,
 body {
   margin: 0;
