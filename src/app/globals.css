@@ -1231,3 +1231,19 @@ a.chip {
 .skeleton-lines .skeleton-chips {
   margin-top: 4px;
 }
+
+/* Header link of the current page */
+.site-header nav a[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+.site-header nav a.nav-cta[aria-current="page"] {
+  background: var(--accent);
+  color: #111;
+  text-decoration: none;
+}
