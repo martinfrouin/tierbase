@@ -49,6 +49,7 @@ export default function ContactForm() {
         Subject
         <select name="subject" defaultValue={values?.subject ?? "missing-title"} required>
           <option value="missing-title">A title is missing</option>
+          <option value="suggestion">A suggestion</option>
           <option value="bug">Something is broken</option>
           <option value="other">Something else</option>
         </select>

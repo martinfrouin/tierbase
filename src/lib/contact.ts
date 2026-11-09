@@ -1,4 +1,4 @@
-export const SUBJECTS = ["missing-title", "bug", "other"] as const;
+export const SUBJECTS = ["missing-title", "suggestion", "bug", "other"] as const;
 export type Subject = (typeof SUBJECTS)[number];
 
 export const MAX_BODY = 4000;

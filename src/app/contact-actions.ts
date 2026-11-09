@@ -12,7 +12,12 @@ const MAX_PER_USER_PER_HOUR = 5;
 const MAX_PER_DAY = 100;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SENT: ContactState = { status: "sent", message: "Thanks, your message was sent." };
-const SUBJECT_LABELS: Record<Subject, string> = { "missing-title": "Missing title", bug: "Bug", other: "Other" };
+const SUBJECT_LABELS: Record<Subject, string> = {
+  "missing-title": "Missing title",
+  suggestion: "Suggestion",
+  bug: "Bug",
+  other: "Other",
+};
 
 // Forwards the message to the contact inbox; the database copy stays the source of truth if this fails
 async function notify(subject: Subject, body: string, email: string) {
