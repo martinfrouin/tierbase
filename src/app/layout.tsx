@@ -69,7 +69,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </a>
           </p>
           <p className="footer-links">
-            <Link href="/legal">Legal notice</Link> · <Link href="/privacy">Privacy</Link> · Data from{" "}
+            <Link href="/contact">Contact</Link> · <Link href="/legal">Legal notice</Link> ·{" "}
+            <Link href="/privacy">Privacy</Link> · Data from{" "}
             <a href="https://anilist.co" target="_blank" rel="noreferrer">
               AniList
             </a>{" "}

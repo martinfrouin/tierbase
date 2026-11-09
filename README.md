@@ -41,6 +41,12 @@ Postgres, in Docker locally (`docker-compose.yml`). Schema in `db/schema.sql`.
 ssh <vm> 'cd ~/tierbase && docker compose -f compose.prod.yml exec -T worker npm run --silent stats'
 ```
 
+`npm run messages` prints the latest contact form messages (`--limit=N`, default 20). For production:
+
+```bash
+ssh <vm> 'cd ~/tierbase && docker compose -f compose.prod.yml exec -T worker npm run --silent messages'
+```
+
 Visits come from Vercel Web Analytics (cookieless), with custom events for picking favorites and copying a share link or downloading the tier list image.
 
 ## Support

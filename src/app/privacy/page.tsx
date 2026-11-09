@@ -8,7 +8,7 @@ export default function PrivacyPage() {
   return (
     <article className="legal">
       <h1>Privacy</h1>
-      <p className="muted">Last updated: 20 October 2026</p>
+      <p className="muted">Last updated: 9 November 2026</p>
 
       <p>{SITE_NAME} has no accounts and no ads. Here is everything it stores, and why.</p>
 
@@ -30,10 +30,14 @@ export default function PrivacyPage() {
           ones.
         </li>
         <li>
+          <strong>Contact messages</strong> sent from the <Link href="/contact">contact page</Link>, with the email
+          you leave if you want an answer. They are only read to answer you and deleted once handled.
+        </li>
+        <li>
           <strong>Technical logs</strong> (IP address, requests) kept by the hosts for security and debugging.
         </li>
       </ul>
-      <p>No email, name or payment data is ever collected.</p>
+      <p>No name or payment data is ever collected, and no email unless you leave one in a contact message.</p>
 
       <h2>Audience measurement</h2>
       <p>
