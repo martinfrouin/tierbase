@@ -17,7 +17,7 @@ async function Confirm({ params }: { params: Promise<{ token: string }> }) {
   const [restore, current] = await Promise.all([findRestore(token), currentUserId()]);
   if (!restore) redirect("/tierlist?restore=invalid");
 
-  const currentCount = current ? (await getLibrary(current)).length : 0;
+  const currentCount = current ? (await getLibrary(current, null)).length : 0;
   const saved = restore.savedAt
     ? `, saved on ${restore.savedAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`
     : "";

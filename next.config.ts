@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   images: {
     unoptimized: true,
-    remotePatterns: [{ protocol: "https", hostname: "s4.anilist.co" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "s4.anilist.co" },
+      { protocol: "https", hostname: "images.igdb.com" },
+    ],
   },
 };
 

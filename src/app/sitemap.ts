@@ -10,7 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const titles = await sql`
     SELECT slug FROM titles
-    WHERE id IN (SELECT title_id FROM mentions UNION SELECT title_id FROM ratings WHERE tier IS NOT NULL)
+    WHERE universe = 'reading'
+      AND id IN (SELECT title_id FROM mentions UNION SELECT title_id FROM ratings WHERE tier IS NOT NULL)
     ORDER BY popularity DESC
   `;
   return [

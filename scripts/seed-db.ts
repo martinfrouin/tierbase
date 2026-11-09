@@ -1,9 +1,11 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import postgres from "postgres";
 import { cleanDescription } from "./lib/description.ts";
+import { deriveGenres, type IgdbTags } from "./lib/game-genres.ts";
 import { TitleMatcher, normalize } from "./lib/matcher.ts";
+import { universeOf, type Universe } from "./lib/subreddits.ts";
 import { isRecommendationThread } from "./lib/threads.ts";
 
 interface CatalogEntry {
@@ -15,11 +17,13 @@ interface CatalogEntry {
   synonyms: string[];
   origin: string;
   format: string;
-  status: string;
+  status: string | null;
   genres: string[];
   popularity: number;
   url: string;
   cover: string;
+  universe?: Universe;
+  igdb?: IgdbTags;
 }
 
 interface Thread {
@@ -41,7 +45,7 @@ const readJson = <T>(path: string): T => JSON.parse(readFileSync(join(ROOT, path
 // AniList lists adaptations separately (manga vs light novel vs one-shot, ONE's webcomic vs Murata's One-Punch Man).
 // Readers mean one series, so entries with the same name and origin collapse into the most popular comic version.
 const mergedInto = new Map<number, number>();
-const catalog = (() => {
+const readingCatalog = (() => {
   const raw = [...readJson<CatalogEntry[]>("data/cache/anilist.json"), ...readJson<CatalogEntry[]>("data/extra-titles.json")];
   const groups = new Map<string, CatalogEntry[]>();
   for (const t of raw) {
@@ -54,15 +58,35 @@ const catalog = (() => {
     );
     for (const o of others) mergedInto.set(o.id, main.id);
     const names = others.flatMap((o) => [o.name, o.romaji, ...o.synonyms]).filter((n): n is string => !!n);
-    return { ...main, synonyms: [...new Set([...main.synonyms, ...names])] };
+    return { ...main, universe: "reading" as const, synonyms: [...new Set([...main.synonyms, ...names])] };
   })
     // Only manhwa, manga and manhua: novels and Western comics are too rare in these threads to rank fairly
     .filter((t) => kind(t) !== null);
 })();
+
+// Missing until the first `npm run sync:games`: games are then left as they are in the database
+const GAMES_CACHE = "data/cache/igdb.json";
+const GAME_ID_OFFSET = 1_000_000_000;
+const hasGames = existsSync(join(ROOT, GAMES_CACHE));
+const genreCorrections = readJson<{ add: Record<string, string[]>; remove: Record<string, string[]> }>("data/game-genres.json");
+const gamesCatalog: CatalogEntry[] = (hasGames ? readJson<CatalogEntry[]>(GAMES_CACHE) : []).map((g) => ({
+  ...g,
+  universe: "games",
+  genres: deriveGenres(g.igdb!, { add: genreCorrections.add[g.id], remove: genreCorrections.remove[g.id] }),
+}));
+const catalog = [...readingCatalog, ...gamesCatalog];
+
 const exclusions = readJson<{ comments: Record<string, string> }>("data/exclusions.json");
 const wordList = (path: string) => new Set(readFileSync(join(ROOT, path), "utf8").split("\n").filter(Boolean));
 const words = { common: wordList("data/common-words.txt"), dictionary: wordList("data/dictionary.txt") };
-const matcher = new TitleMatcher(catalog, words, readJson("data/aliases.json"));
+const aliases = readJson<{ add: Record<string, string[]>; block: string[] }>("data/aliases.json");
+// Each matcher only knows its own titles, so "Hades" in r/roguelites never lands on a manga
+function matcherFor(titles: CatalogEntry[]) {
+  const ids = new Set(titles.map((t) => String(t.id)));
+  const add = Object.fromEntries(Object.entries(aliases.add).filter(([id]) => ids.has(id)));
+  return new TitleMatcher(titles, words, { ...aliases, add });
+}
+const matchers: Record<Universe, TitleMatcher> = { reading: matcherFor(readingCatalog), games: matcherFor(gamesCatalog) };
 
 // Many manhwa and manhua have no official English title on AniList: fall back to a synonym written in plain English.
 // Japanese titles keep their romaji, which is what readers use ("Jujutsu Kaisen", not "Sorcery Fight").
@@ -77,11 +101,13 @@ function isEnglish(name: string): boolean {
 }
 
 function displayName(t: CatalogEntry): string {
+  if (t.universe === "games") return t.name;
   if (t.name !== t.romaji || t.origin === "JP" || isEnglish(t.name)) return t.name;
   return (t.synonyms.find(isEnglish) ?? t.name).trim();
 }
 
 function kind(t: CatalogEntry): string | null {
+  if (t.universe === "games") return "game";
   if (t.format === "NOVEL") return null;
   return { KR: "manhwa", JP: "manga", CN: "manhua", TW: "manhua" }[t.origin] ?? null;
 }
@@ -94,15 +120,19 @@ await sql.unsafe(readFileSync(join(ROOT, "db/schema.sql"), "utf8"));
 
 // Slugs are public URLs: keep existing ones stable across catalog refreshes
 const existingSlugs = new Map((await sql`SELECT id, slug FROM titles`).map((r) => [Number(r.id), String(r.slug)]));
-const usedSlugs = new Set(existingSlugs.values());
+// Slugs are unique per universe: a game and a manga can both be "hades"
+const slugKey = (t: CatalogEntry, slug: string) => `${t.universe}:${slug}`;
+const usedSlugs = new Set((await sql`SELECT universe, slug FROM titles`).map((r) => `${r.universe}:${r.slug}`));
 const titleRows = [...catalog]
   .sort((a, b) => b.popularity - a.popularity)
   .map((t) => {
     let slug = existingSlugs.get(t.id);
     if (!slug) {
       slug = slugify(displayName(t)) || String(t.id);
-      if (usedSlugs.has(slug)) slug = `${slug}-${t.id}`;
-      usedSlugs.add(slug);
+      // Games suffix with the IGDB id, not the offset one, so URLs stay short
+      const shortId = t.universe === "games" ? t.id - GAME_ID_OFFSET : t.id;
+      if (usedSlugs.has(slugKey(t, slug))) slug = `${slug}-${shortId}`;
+      usedSlugs.add(slugKey(t, slug));
     }
     return {
       id: t.id,
@@ -119,6 +149,7 @@ const titleRows = [...catalog]
       cover: t.cover,
       url: t.url,
       popularity: t.popularity,
+      universe: t.universe!,
     };
   });
 
@@ -128,23 +159,33 @@ for (let i = 0; i < titleRows.length; i += CHUNK) {
     ON CONFLICT (id) DO UPDATE SET name = excluded.name, romaji = excluded.romaji, native = excluded.native,
       description = excluded.description,
       search = excluded.search, kind = excluded.kind, origin = excluded.origin, status = excluded.status,
-      genres = excluded.genres, cover = excluded.cover, url = excluded.url, popularity = excluded.popularity
+      genres = excluded.genres, cover = excluded.cover, url = excluded.url, popularity = excluded.popularity,
+      universe = excluded.universe
   `;
 }
 
-const threadRows: { id: string; subreddit: string; title: string; url: string; created_at: Date; analyzed_comments: number }[] = [];
+const threadRows: {
+  id: string;
+  subreddit: string;
+  title: string;
+  url: string;
+  created_at: Date;
+  analyzed_comments: number;
+  universe: Universe;
+}[] = [];
 const mentionRows: { comment_id: string; title_id: number; thread_id: string; author: string; score: number; body: string }[] = [];
 
 for (const file of readdirSync(join(ROOT, "data/cache/threads")).filter((f) => f.endsWith(".json.gz"))) {
   const { post, comments }: Thread = JSON.parse(gunzipSync(readFileSync(join(ROOT, "data/cache/threads", file))).toString());
-  if (!isRecommendationThread(post)) continue;
+  const universe = universeOf(post.subreddit);
+  if (!isRecommendationThread(post, universe)) continue;
 
   let analyzed = 0;
   for (const c of comments) {
     if (c.author === post.author || IGNORED_AUTHORS.has(c.author) || exclusions.comments[c.id]) continue;
     if (c.body.includes("?") && PLOT_QUESTION.test(c.body)) continue;
     analyzed++;
-    for (const titleId of matcher.match(c.body)) {
+    for (const titleId of matchers[universe].match(c.body)) {
       mentionRows.push({ comment_id: c.id, title_id: titleId, thread_id: post.id, author: c.author, score: c.score, body: c.body.slice(0, 600) });
     }
   }
@@ -155,6 +196,7 @@ for (const file of readdirSync(join(ROOT, "data/cache/threads")).filter((f) => f
     url: `https://www.reddit.com${post.permalink}`,
     created_at: new Date(post.created_utc * 1000),
     analyzed_comments: analyzed,
+    universe,
   });
 }
 
@@ -175,10 +217,18 @@ await sql.begin(async (tx) => {
     await tx`DELETE FROM titles WHERE id IN ${tx(from)}`;
   }
   // Titles that left the catalog (novels, Western comics) go, unless a visitor has them in a tier list
-  await tx`DELETE FROM titles WHERE id <> ALL(${catalog.map((t) => t.id)}::int[]) AND id NOT IN (SELECT title_id FROM ratings)`;
+  // Only universes whose catalog was loaded: a missing games cache must not wipe the games
+  const loaded: Universe[] = hasGames ? ["reading", "games"] : ["reading"];
+  await tx`
+    DELETE FROM titles WHERE universe IN ${tx(loaded)} AND id <> ALL(${catalog.map((t) => t.id)}::int[])
+      AND id NOT IN (SELECT title_id FROM ratings)
+  `;
   for (let i = 0; i < threadRows.length; i += CHUNK) await tx`INSERT INTO threads ${tx(threadRows.slice(i, i + CHUNK))}`;
   for (let i = 0; i < mentionRows.length; i += CHUNK) await tx`INSERT INTO mentions ${tx(mentionRows.slice(i, i + CHUNK))}`;
 });
 
-console.log(`${catalog.length} titles (${mergedInto.size} duplicates merged), ${threadRows.length} threads, ${mentionRows.length} mentions`);
+console.log(
+  `${readingCatalog.length} reading titles (${mergedInto.size} duplicates merged), ${gamesCatalog.length} games, ` +
+    `${threadRows.length} threads, ${mentionRows.length} mentions`,
+);
 await sql.end();

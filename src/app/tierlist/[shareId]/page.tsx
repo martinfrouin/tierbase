@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
-import { getLibrary, getUserByShareId, recommend, tasteMatch, TIER_WEIGHT, TIERS, type LibraryEntry } from "@/lib/data";
+import { getLibrary, getUserByShareId, recommend, tasteMatch, TIER_WEIGHT, TIERS, userBasket, type LibraryEntry } from "@/lib/data";
 import { KINDS, parseKind } from "@/lib/kinds";
 import { currentUserId } from "@/lib/user";
 
@@ -68,7 +68,7 @@ async function SharedList({
     await recommend(
       liked.map((e) => ({ titleId: e.title.id, weight: TIER_WEIGHT[e.tier!] ?? 0 })),
       new Set(list.map((e) => e.title.id)),
-      { limit: 40, skipBasket: `u:${owner.id}` },
+      { limit: 40, skipBasket: userBasket(owner.id, "reading") },
     )
   )
     .filter((r) => !kind || r.title.kind === kind)

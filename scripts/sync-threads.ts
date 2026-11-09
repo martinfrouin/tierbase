@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { fetchJson } from "./lib/http.ts";
+import { SUBREDDITS, universeOf } from "./lib/subreddits.ts";
 import { isRecommendationThread } from "./lib/threads.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -9,19 +10,7 @@ const API = "https://arctic-shift.photon-reddit.com/api";
 const STATE_FILE = join(ROOT, "data/cache/state.json");
 const THREADS_DIR = join(ROOT, "data/cache/threads");
 
-// Sources per kind, so manga, manhwa and manhua each get comparable coverage
-// Manhwa subreddits are far busier: the manga side gets the smaller demographic communities too
-const SUBREDDITS = [
-  "manhwa",
-  "manhwarecommendations",
-  "webtoons",
-  "manga",
-  "MangaRecommendations",
-  "Seinen",
-  "shoujo",
-  "josei",
-  "manhua",
-];
+const NAMES = SUBREDDITS.map((s) => s.name);
 const DAY = 86400;
 // Each run extends the history further back by this much, until MAX_HISTORY_DAYS
 const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
@@ -82,7 +71,7 @@ async function scan(subreddit: string, after: number, before: number): Promise<P
           `&fields=id,title,author,subreddit,created_utc,link_flair_text`,
       );
       for (const post of data) post.permalink = `/r/${post.subreddit}/comments/${post.id}/`;
-      found.push(...data.filter(isRecommendationThread));
+      found.push(...data.filter((p) => isRecommendationThread(p, universeOf(p.subreddit))));
       if (data.length < 100) break;
       cursor = data[data.length - 1].created_utc;
     }
@@ -124,7 +113,7 @@ async function fetchThreads(posts: Post[]) {
 }
 
 // 1. Catch up on new posts, and keep refreshing recent threads
-for (const subreddit of SUBREDDITS) {
+for (const subreddit of NAMES) {
   const from = state.newest[subreddit] ?? now - DAY;
   state.oldest[subreddit] ??= from;
   const posts = await scan(subreddit, from, now);
@@ -141,10 +130,10 @@ await fetchThreads(Object.values(state.recent));
 const target = now - MAX_HISTORY_DAYS * DAY;
 const stopAt = Math.max(
   target,
-  BACKFILL_TO_DAYS ? now - Number(BACKFILL_TO_DAYS) * DAY : Math.min(...SUBREDDITS.map((s) => state.oldest[s])) - HISTORY_DAYS * DAY,
+  BACKFILL_TO_DAYS ? now - Number(BACKFILL_TO_DAYS) * DAY : Math.min(...NAMES.map((s) => state.oldest[s])) - HISTORY_DAYS * DAY,
 );
 for (;;) {
-  const pending = SUBREDDITS.filter((s) => state.oldest[s] > stopAt);
+  const pending = NAMES.filter((s) => state.oldest[s] > stopAt);
   if (pending.length === 0) break;
   for (const subreddit of pending) {
     const before = state.oldest[subreddit];

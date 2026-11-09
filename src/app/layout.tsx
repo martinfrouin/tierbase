@@ -26,7 +26,9 @@ async function Stats() {
   "use cache";
   cacheLife("hours");
   const [stats] = await sql`
-    SELECT (SELECT COUNT(DISTINCT comment_id)::int FROM mentions) AS comments, (SELECT COUNT(*)::int FROM threads) AS threads
+    SELECT (SELECT COUNT(DISTINCT m.comment_id)::int FROM mentions m JOIN threads th ON th.id = m.thread_id
+            WHERE th.universe = 'reading') AS comments,
+           (SELECT COUNT(*)::int FROM threads WHERE universe = 'reading') AS threads
   `;
   return (
     <>

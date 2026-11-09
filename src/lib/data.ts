@@ -2,8 +2,9 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { sql } from "@/lib/db";
 import { KINDS, type Kind } from "@/lib/kinds";
+import type { Universe } from "@/lib/universes";
 
-export { KINDS, type Kind };
+export { KINDS, type Kind, type Universe };
 
 export type Tier = "S" | "A" | "B" | "C" | "D";
 export type LibraryState = "rated" | "want" | "skip";
@@ -56,6 +57,11 @@ export interface Quote {
 // Loved (S) titles steer recommendations far more than liked (A) ones
 export const TIER_WEIGHT: Partial<Record<Tier, number>> = { S: 1, A: 0.35 };
 
+// Must match the baskets view in db/schema.sql
+export function userBasket(userId: string, universe: Universe): string {
+  return `u:${userId}:${universe}`;
+}
+
 export interface Recommendation {
   title: TitleCard;
   score: number;
@@ -87,7 +93,13 @@ function toCard(row: Record<string, unknown>): TitleCard {
 // Manhwa threads far outnumber manga and manhua ones. Each title is measured against a reference halfway (geometric mean)
 // between the top of its kind and the overall top: kinds get a fair chance without a niche leader outranking blockbusters.
 // With a kind filter both are the same, so the best manga leads the manga ranking.
-export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
+export interface RankingFilter {
+  universe?: Universe;
+  kind?: Kind;
+  genre?: string;
+}
+
+export async function getRanking({ universe = "reading", kind, genre }: RankingFilter = {}): Promise<RankedTitle[]> {
   "use cache";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
@@ -100,8 +112,10 @@ export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
     SELECT t.id, t.slug, t.name, t.kind, t.cover,
            COALESCE(m.n, 0) AS mentions, COALESCE(r.votes, 0) AS votes, COALESCE(r.total, 0) AS total
     FROM titles t LEFT JOIN m ON m.title_id = t.id LEFT JOIN r ON r.title_id = t.id
-    WHERE (m.n > 0 OR r.votes > 0) AND t.kind IN ${sql(KINDS.map((k) => k.value))}
+    WHERE (m.n > 0 OR r.votes > 0) AND t.universe = ${universe}
+      AND (${universe}::text <> 'reading' OR t.kind IN ${sql(KINDS.map((k) => k.value))})
       AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
+      AND (${genre ?? null}::text IS NULL OR t.genres @> jsonb_build_array(${genre ?? null}::text))
   `;
 
   // Floored, so a kind with a handful of mentions can't hand out 5/5 priors
@@ -125,17 +139,18 @@ export async function getRanking(kind?: Kind): Promise<RankedTitle[]> {
   return scored;
 }
 
-export async function getTitle(slug: string): Promise<TitleDetail | null> {
+export async function getTitle(slug: string, universe: Universe = "reading"): Promise<TitleDetail | null> {
   "use cache";
   cacheLife("minutes");
   cacheTag(RATINGS_TAG);
 
   const [row] = await sql`
-    SELECT t.*, (SELECT COUNT(*)::int FROM mentions WHERE title_id = t.id) AS mentions FROM titles t WHERE slug = ${slug}
+    SELECT t.*, (SELECT COUNT(*)::int FROM mentions WHERE title_id = t.id) AS mentions FROM titles t
+    WHERE slug = ${slug} AND universe = ${universe}
   `;
   if (!row) return null;
   const [ranking, tierRows] = await Promise.all([
-    getRanking(),
+    getRanking({ universe }),
     sql`SELECT tier, COUNT(*)::int AS n FROM ratings WHERE title_id = ${row.id} AND tier IS NOT NULL GROUP BY tier`,
   ]);
   const ranked = ranking.find((t) => t.id === Number(row.id));
@@ -175,7 +190,7 @@ export async function getQuotes(titleId: number, limit = 6): Promise<Quote[]> {
   }));
 }
 
-export async function searchTitles(query: string, limit = 24): Promise<TitleCard[]> {
+export async function searchTitles(query: string, limit = 24, universes: Universe[] = ["reading"]): Promise<TitleCard[]> {
   const normalized = query
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
@@ -186,7 +201,8 @@ export async function searchTitles(query: string, limit = 24): Promise<TitleCard
   if (normalized.length < 2) return [];
   const rows = await sql`
     SELECT id, slug, name, kind, cover FROM titles
-    WHERE search ILIKE ${"%" + normalized + "%"} ORDER BY popularity DESC LIMIT ${limit}
+    WHERE search ILIKE ${"%" + normalized + "%"} AND universe IN ${sql(universes)}
+    ORDER BY popularity DESC LIMIT ${limit}
   `;
   return rows.map(toCard);
 }
@@ -278,10 +294,11 @@ export interface LibraryEntry {
   state: LibraryState;
 }
 
-export async function getLibrary(userId: string): Promise<LibraryEntry[]> {
+// universe null = the whole list, every universe
+export async function getLibrary(userId: string, universe: Universe | null = "reading"): Promise<LibraryEntry[]> {
   const rows = await sql`
     SELECT t.id, t.slug, t.name, t.kind, t.cover, r.tier, r.state FROM ratings r JOIN titles t ON t.id = r.title_id
-    WHERE r.user_id = ${userId} ORDER BY r.updated_at
+    WHERE r.user_id = ${userId} AND (${universe}::text IS NULL OR t.universe = ${universe}) ORDER BY r.updated_at
   `;
   return rows.map((r) => ({ title: toCard(r), tier: (r.tier as Tier | null) ?? null, state: r.state as LibraryState }));
 }
@@ -314,11 +331,15 @@ export async function getEntry(
   return row ? { tier: (row.tier as Tier | null) ?? null, state: row.state as LibraryState } : null;
 }
 
-export async function personalRecommendations(userId: string, limit = 20): Promise<Recommendation[]> {
-  const library = await getLibrary(userId);
+export async function personalRecommendations(
+  userId: string,
+  limit = 20,
+  universe: Universe = "reading",
+): Promise<Recommendation[]> {
+  const library = await getLibrary(userId, universe);
   const liked = library
     .filter((e) => e.tier === "S" || e.tier === "A")
     .map((e) => ({ titleId: e.title.id, weight: TIER_WEIGHT[e.tier!] ?? 0 }));
   const exclude = new Set(library.map((e) => e.title.id));
-  return recommend(liked, exclude, { limit, skipBasket: `u:${userId}` });
+  return recommend(liked, exclude, { limit, skipBasket: userBasket(userId, universe) });
 }

@@ -38,6 +38,8 @@ services:
     logging: *default-logging
     environment:
       DATABASE_URL: postgres://tierbase:${POSTGRES_PASSWORD}@db:5432/tierbase
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
     volumes:
       - ./data/cache:/app/data/cache
     depends_on:

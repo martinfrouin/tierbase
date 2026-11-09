@@ -39,7 +39,7 @@ async function RankingList({ searchParams }: { searchParams: Promise<Params> }) 
   const query = params.q?.trim().toLowerCase() ?? "";
   const page = Math.max(1, Number(params.page) || 1);
 
-  const all = await getRanking(kind);
+  const all = await getRanking({ kind });
   const filtered = all.filter((t) => !query || t.name.toLowerCase().includes(query));
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 

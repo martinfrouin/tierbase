@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS titles (
 ALTER TABLE titles ADD COLUMN IF NOT EXISTS native TEXT;
 ALTER TABLE titles ADD COLUMN IF NOT EXISTS description TEXT;
 CREATE INDEX IF NOT EXISTS titles_search ON titles USING gin (search gin_trgm_ops);
+-- 'reading' (manga, manhwa, manhua) or 'games'. A game and a manga may share a slug.
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS universe TEXT NOT NULL DEFAULT 'reading';
+ALTER TABLE titles DROP CONSTRAINT IF EXISTS titles_slug_key;
+CREATE UNIQUE INDEX IF NOT EXISTS titles_universe_slug ON titles (universe, slug);
 
 CREATE TABLE IF NOT EXISTS threads (
   id TEXT PRIMARY KEY,
@@ -29,6 +33,7 @@ CREATE TABLE IF NOT EXISTS threads (
   created_at TIMESTAMPTZ NOT NULL,
   analyzed_comments INTEGER NOT NULL
 );
+ALTER TABLE threads ADD COLUMN IF NOT EXISTS universe TEXT NOT NULL DEFAULT 'reading';
 
 -- One row per (Reddit comment, title it cites)
 CREATE TABLE IF NOT EXISTS mentions (
@@ -77,12 +82,15 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 CREATE INDEX IF NOT EXISTS ratings_title ON ratings(title_id);
 
--- A "basket" is a set of titles one reader likes: everything a Reddit user cited, or a site user's S/A titles.
+-- A "basket" is a set of titles one person likes: everything a Reddit user cited, or a site user's S/A titles.
 -- Grouping by Reddit author keeps a list pasted in many threads from counting many times.
+-- Baskets are per universe: liking Solo Leveling and Hades says nothing about manga readers' taste in games.
 CREATE OR REPLACE VIEW baskets AS
-  SELECT DISTINCT 'r:' || author AS basket, title_id FROM mentions
+  SELECT DISTINCT 'r:' || m.author || ':' || t.universe AS basket, m.title_id
+  FROM mentions m JOIN titles t ON t.id = m.title_id
   UNION ALL
-  SELECT 'u:' || user_id AS basket, title_id FROM ratings WHERE tier IN ('S', 'A');
+  SELECT 'u:' || r.user_id || ':' || t.universe AS basket, r.title_id
+  FROM ratings r JOIN titles t ON t.id = r.title_id WHERE r.tier IN ('S', 'A');
 
 -- Messages sent from /contact. user_id only serves rate limiting and goes with the account.
 CREATE TABLE IF NOT EXISTS contact_messages (
