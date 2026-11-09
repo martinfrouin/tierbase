@@ -549,6 +549,16 @@ a.chip {
   margin: 4px 0 10px;
 }
 
+/* Quick-rating rows: a cover as tall as the name, details and buttons */
+.rec.compact {
+  grid-template-columns: 68px 1fr;
+}
+
+.rec.compact .rec-meta {
+  margin: 2px 0 8px;
+  font-size: 14px;
+}
+
 .rate-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -776,12 +786,6 @@ a.chip {
   color: var(--muted);
 }
 
-.see-all {
-  margin-left: 8px;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--muted);
-}
 
 .site-header nav a.nav-icon {
   display: flex;

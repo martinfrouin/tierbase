@@ -12,7 +12,7 @@ Two smaller additions ship alongside: a search button in the header, and a conta
 
 | Topic | Decision |
 |---|---|
-| Coexistence | Separate universes: **Reading** (existing) and **Games**. Ranking, tier list, recommendations and "For you" never mix universes. |
+| Coexistence | Separate universes: **Reading** (existing) and **Games**. Ranking, tier list and recommendations (shown on each universe's home page) never mix universes. |
 | Games scope | All popular games (~10k), one games tier list per user, genre filter (Roguelite, RPG, Metroidvania…) on ranking and tier list. |
 | Catalog source | IGDB (Twitch developer credentials: `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`). |
 | Data model | Same tables, new `universe` column. Game IDs offset by `1_000_000_000` to avoid colliding with AniList IDs. |
@@ -74,7 +74,7 @@ One config object per universe: base path (`''` / `'/games'`), title path (`/tit
 
 Reading keeps its current URLs (SEO and shared links). Games mirror them:
 
-- `/games`, `/games/ranking?genre=roguelite`, `/games/tierlist`, `/games/for-you`, `/games/tierlist/[shareId]` (+ image and OG routes)
+- `/games` (home with recommendations), `/games/ranking?genre=roguelite`, `/games/tierlist`, `/games/tierlist/[shareId]` (+ image and OG routes)
 - `/game/[slug]` (+ OG image)
 - `/games/ranking/[genre]`: static, indexable "Best roguelites" style pages for the main genres, in the sitemap
 
@@ -82,7 +82,7 @@ Existing page files become thin wrappers around shared page components that take
 
 ### Header
 
-- Logo · **Reading / Games** switch · Ranking · Tier list · For you (links follow the current universe, inferred from the path).
+- Logo · **Reading / Games** switch · Ranking · Tier list (links follow the current universe, inferred from the path).
 - **Search button** (magnifier): opens an input with instant results from both universes, each badged 🎮 / 📖 and linking to its page. Full-screen overlay on mobile. Uses the existing `search` action, debounced, ignoring stale responses (same pattern as `TierBoard`). Escape closes it, arrow keys + Enter navigate results.
 
 ### Contact form

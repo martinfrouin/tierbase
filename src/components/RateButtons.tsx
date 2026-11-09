@@ -13,11 +13,11 @@ type Choice = {
 };
 
 const CHOICES: Choice[] = [
-  { emoji: "⭐", label: "Loved it", entry: { tier: "S" } },
-  { emoji: "❤️", label: "Liked it", entry: { tier: "A" } },
+  { emoji: "⭐", label: "Loved", entry: { tier: "S" } },
+  { emoji: "❤️", label: "Liked", entry: { tier: "A" } },
   { emoji: "👍", label: "Good", entry: { tier: "B" } },
-  { emoji: "😐", label: "It was ok", entry: { tier: "C" } },
-  { emoji: "👎", label: "Didn't like it", entry: { tier: "D" } },
+  { emoji: "😐", label: "Okay", entry: { tier: "C" } },
+  { emoji: "👎", label: "Disliked", entry: { tier: "D" } },
   { emoji: "🧐", label: "Want to read", entry: { state: "want" } },
   { emoji: "🚫", label: "Not for me", entry: { state: "skip" } },
 ];

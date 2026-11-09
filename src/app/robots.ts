@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     // Personal pages depend on the visitor's cookie. Shared tier lists (/tierlist/<id>) stay crawlable so X and others
     // can fetch their preview card; they are noindex instead.
-    rules: { userAgent: "*", allow: "/", disallow: ["/for-you", "/tierlist$", "/restore"] },
+    rules: { userAgent: "*", allow: "/", disallow: ["/tierlist$", "/restore"] },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

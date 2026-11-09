@@ -4,7 +4,16 @@ import Cover from "@/components/Cover";
 import FavoritesPicker from "@/components/FavoritesPicker";
 import RateButtons from "@/components/RateButtons";
 import TierListNudge from "@/components/TierListNudge";
-import { getLibrary, getRanking, personalRecommendations, type LibraryEntry } from "@/lib/data";
+import {
+  getGenres,
+  getLibrary,
+  getRanking,
+  KINDS,
+  personalRecommendations,
+  scoreOutOf100,
+  type LibraryEntry,
+  type TitleCard,
+} from "@/lib/data";
 import { currentUserId } from "@/lib/user";
 
 const DASHBOARD_MIN_RANKED = 3;
@@ -38,10 +47,32 @@ function Onboarding({ suggestions }: { suggestions: Awaited<ReturnType<typeof ge
   );
 }
 
+const SHOWN_SOURCES = 3;
+const RECOMMENDATIONS = 20;
+const UNRANKED = 8;
+
+function Because({ titles }: { titles: TitleCard[] }) {
+  const names = titles.map((t) => t.name);
+  if (names.length <= SHOWN_SOURCES) {
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+    return <p className="muted">Because you liked {list}</p>;
+  }
+  return (
+    <details className="because muted">
+      <summary>
+        Because you liked {names.slice(0, SHOWN_SOURCES).join(", ")} + {names.length - SHOWN_SOURCES} more
+      </summary>
+      {names.slice(SHOWN_SOURCES).join(", ")}
+    </details>
+  );
+}
+
 async function Dashboard({ userId, library }: { userId: string; library: LibraryEntry[] }) {
   const inLibrary = new Set(library.map((e) => e.title.id));
-  const [recs, ranking] = await Promise.all([personalRecommendations(userId, 6), getRanking()]);
-  const unranked = ranking.filter((t) => !inLibrary.has(t.id)).slice(0, 8);
+  const liked = library.filter((e) => e.tier === "S" || e.tier === "A");
+  const [recs, ranking] = await Promise.all([personalRecommendations(userId, RECOMMENDATIONS), getRanking()]);
+  const unranked = ranking.filter((t) => !inLibrary.has(t.id)).slice(0, UNRANKED);
+  const genres = await getGenres(unranked.map((t) => t.id));
 
   return (
     <>
@@ -50,22 +81,39 @@ async function Dashboard({ userId, library }: { userId: string; library: Library
       </section>
       <TierListNudge ranked={library.filter((e) => e.tier).length} />
 
-      {recs.length > 0 && (
+      <h2>Recommended for you</h2>
+      {liked.length === 0 ? (
+        <p className="empty">
+          Mark a few titles as Loved or Liked below, or in <Link href="/tierlist">your tier list</Link>, to get
+          recommendations.
+        </p>
+      ) : recs.length === 0 ? (
+        <p className="empty">Not enough readers share your picks yet. Try adding a few more popular favorites.</p>
+      ) : (
         <>
-          <h2>
-            Recommended for you{" "}
-            <Link href="/for-you" className="see-all">
-              See all →
-            </Link>
-          </h2>
-          <div className="cover-grid">
+          <p className="muted">
+            Based on {liked.length} title{liked.length > 1 ? "s" : ""} you loved.
+          </p>
+          <ol className="rec-list">
             {recs.map((r) => (
-              <Link key={r.title.id} href={`/title/${r.title.slug}`} className="cover-tile">
-                <Cover src={r.title.cover} size="medium" />
-                <span>{r.title.name}</span>
-              </Link>
+              <li key={r.title.id} className="rec">
+                <Link href={`/title/${r.title.slug}`}>
+                  <Cover src={r.title.cover} size="medium" />
+                </Link>
+                <div>
+                  <Link href={`/title/${r.title.slug}`} className="rec-name">
+                    {r.title.name}
+                  </Link>
+                  <p className="rec-match">
+                    <strong>{r.match}% match</strong> · liked by {r.readers} reader{r.readers > 1 ? "s" : ""} who
+                    share your taste
+                  </p>
+                  <Because titles={r.because} />
+                  <RateButtons titleId={r.title.id} />
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </>
       )}
 
@@ -75,7 +123,7 @@ async function Dashboard({ userId, library }: { userId: string; library: Library
           <p className="muted">Popular titles not in your tier list yet. One tap adds them.</p>
           <ol className="rec-list">
             {unranked.map((t) => (
-              <li key={t.id} className="rec">
+              <li key={t.id} className="rec compact">
                 <Link href={`/title/${t.slug}`}>
                   <Cover src={t.cover} size="medium" />
                 </Link>
@@ -83,6 +131,15 @@ async function Dashboard({ userId, library }: { userId: string; library: Library
                   <Link href={`/title/${t.slug}`} className="rec-name">
                     {t.name}
                   </Link>
+                  <p className="muted rec-meta">
+                    {[
+                      KINDS.find((k) => k.value === t.kind)?.label,
+                      genres.get(t.id)?.slice(0, 3).join(", "),
+                      `${scoreOutOf100(t.score)}/100`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                   <RateButtons titleId={t.id} />
                 </div>
               </li>

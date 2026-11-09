@@ -25,7 +25,7 @@ export async function setEntry(
     `;
   }
   updateTag(RATINGS_TAG);
-  revalidatePath("/for-you");
+  revalidatePath("/");
   revalidatePath("/tierlist");
   // Pages the visitor already opened (an empty tier list) would otherwise come back from the client cache
   refresh();
@@ -41,7 +41,7 @@ export async function saveFavorites(titleIds: number[]) {
     `;
   }
   updateTag(RATINGS_TAG);
-  revalidatePath("/for-you");
+  revalidatePath("/");
   revalidatePath("/tierlist");
   refresh();
 }
@@ -55,7 +55,7 @@ export async function clearTiers(kind: Kind | null) {
       AND (${kind}::text IS NULL OR t.kind = ${kind})
   `;
   updateTag(RATINGS_TAG);
-  revalidatePath("/for-you");
+  revalidatePath("/");
   revalidatePath("/tierlist");
   refresh();
 }
@@ -73,7 +73,7 @@ export async function restoreBackup(token: string) {
   if (!restore) redirect("/tierlist?restore=invalid");
   await applyRestore(restore, await ensureUserId());
   updateTag(RATINGS_TAG);
-  revalidatePath("/for-you");
+  revalidatePath("/");
   revalidatePath("/tierlist");
   redirect("/tierlist?restore=ok");
 }

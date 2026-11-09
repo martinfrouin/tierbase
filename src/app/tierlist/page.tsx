@@ -60,7 +60,7 @@ export default function TierListPage({ searchParams }: { searchParams: Promise<{
         <h1>My tier list</h1>
         <p className="muted">
           This is what your recommendations are built on: the more titles you rank, the better they get. Drag in what
-          you&apos;ve read, then <Link href="/for-you">see your recommendations</Link>. You can also share it as a link
+          you&apos;ve read, then <Link href="/">see your recommendations</Link>. You can also share it as a link
           or an image.
         </p>
       </section>

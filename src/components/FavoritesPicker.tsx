@@ -1,7 +1,6 @@
 "use client";
 
 import { track } from "@vercel/analytics";
-import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import Cover from "@/components/Cover";
 import { saveFavorites, search } from "@/app/actions";
@@ -10,7 +9,6 @@ import type { TitleCard } from "@/lib/data";
 const MIN_PICKS = 3;
 
 export default function FavoritesPicker({ suggestions }: { suggestions: TitleCard[] }) {
-  const router = useRouter();
   const [picked, setPicked] = useState<TitleCard[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TitleCard[] | null>(null);
@@ -34,7 +32,8 @@ export default function FavoritesPicker({ suggestions }: { suggestions: TitleCar
     startSaving(async () => {
       await saveFavorites(picked.map((t) => t.id));
       track("Favorites picked", { count: picked.length });
-      router.push("/for-you");
+      // saveFavorites refreshes this page, which now shows the recommendations
+      window.scrollTo({ top: 0 });
     });
 
   const grid = results ?? suggestions;

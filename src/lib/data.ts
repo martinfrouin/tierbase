@@ -288,6 +288,12 @@ export async function getCards(ids: number[]): Promise<Map<number, TitleCard>> {
   return new Map(rows.map((r) => [Number(r.id), toCard(r)]));
 }
 
+export async function getGenres(ids: number[]): Promise<Map<number, string[]>> {
+  if (ids.length === 0) return new Map();
+  const rows = await sql`SELECT id, genres FROM titles WHERE id IN ${sql(ids)}`;
+  return new Map(rows.map((r) => [Number(r.id), r.genres as string[]]));
+}
+
 export interface LibraryEntry {
   title: TitleCard;
   tier: Tier | null;

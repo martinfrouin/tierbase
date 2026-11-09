@@ -51,7 +51,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </Link>
           <nav>
             <HeaderSearch />
-            <Link href="/for-you">For you</Link>
             <Link href="/ranking">Ranking</Link>
             <Link href="/tierlist" className="nav-cta">
               My tier list
