@@ -231,6 +231,32 @@ await sql.begin(async (tx) => {
   `;
   for (let i = 0; i < threadRows.length; i += CHUNK) await tx`INSERT INTO threads ${tx(threadRows.slice(i, i + CHUNK))}`;
   for (let i = 0; i < mentionRows.length; i += CHUNK) await tx`INSERT INTO mentions ${tx(mentionRows.slice(i, i + CHUNK))}`;
+  // Ranking scores (see db/schema.sql). Each title is measured against a reference halfway (geometric mean) between the
+  // most cited title of its kind and of its universe, both floored at 20 mentions so a niche can't hand out 5/5 priors:
+  // a title at the reference starts at 5/5, a single mention at ~3/5, worth half a vote per mention (3 to 25 votes).
+  await tx`
+    WITH m AS (SELECT title_id, COUNT(*)::int AS n FROM mentions GROUP BY title_id),
+    base AS (SELECT t.id, t.universe, t.kind, COALESCE(m.n, 0) AS n FROM titles t LEFT JOIN m ON m.title_id = t.id),
+    tops AS (
+      SELECT universe, kind, GREATEST(20, MAX(n)) AS kind_top, GREATEST(20, MAX(MAX(n)) OVER (PARTITION BY universe)) AS universe_top
+      FROM base GROUP BY universe, kind
+    )
+    UPDATE titles t SET mention_count = b.n,
+      prior = 3 + 2 * LEAST(1, ln(1 + b.n) / ln(1 + sqrt(tops.kind_top * tops.universe_top))),
+      prior_weight = LEAST(25, GREATEST(3, b.n / 2.0))
+    FROM base b JOIN tops USING (universe, kind)
+    WHERE t.id = b.id
+  `;
+  await tx`
+    UPDATE titles t SET votes = COALESCE(r.votes, 0), vote_total = COALESCE(r.total, 0),
+      score = (t.prior_weight * t.prior + COALESCE(r.total, 0)) / (t.prior_weight + COALESCE(r.votes, 0))
+    FROM titles t2 LEFT JOIN (
+      SELECT title_id, COUNT(*)::int AS votes,
+        SUM(CASE tier WHEN 'S' THEN 5 WHEN 'A' THEN 4 WHEN 'B' THEN 3 WHEN 'C' THEN 2 ELSE 1 END)::int AS total
+      FROM ratings WHERE tier IS NOT NULL GROUP BY title_id
+    ) r ON r.title_id = t2.id
+    WHERE t.id = t2.id
+  `;
   // Weighted Reddit baskets for recommendations (see db/schema.sql)
   await tx`
     INSERT INTO reddit_baskets (basket, title_id, w)

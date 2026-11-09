@@ -84,6 +84,46 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 CREATE INDEX IF NOT EXISTS ratings_title ON ratings(title_id);
 
+-- Ranking score of each title, kept up to date so pages read the few rows they show instead of scoring every title.
+-- Bayesian average on the S..D scale (1-5): the seed sets the Reddit prior (prior, prior_weight) from mention counts,
+-- and the trigger below folds in the tier list votes whenever a rating changes.
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS mention_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS votes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS vote_total INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS prior DOUBLE PRECISION NOT NULL DEFAULT 3;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS prior_weight DOUBLE PRECISION NOT NULL DEFAULT 3;
+ALTER TABLE titles ADD COLUMN IF NOT EXISTS score DOUBLE PRECISION NOT NULL DEFAULT 3;
+-- Ranked titles: cited on Reddit or voted on
+CREATE INDEX IF NOT EXISTS titles_ranked_score ON titles (universe, score DESC) WHERE mention_count > 0 OR votes > 0;
+
+CREATE OR REPLACE FUNCTION refresh_title_votes(tid INTEGER) RETURNS void LANGUAGE sql AS $$
+  UPDATE titles t SET votes = v.votes, vote_total = v.total,
+    score = (t.prior_weight * t.prior + v.total) / (t.prior_weight + v.votes)
+  FROM (
+    SELECT COUNT(*)::int AS votes,
+      COALESCE(SUM(CASE tier WHEN 'S' THEN 5 WHEN 'A' THEN 4 WHEN 'B' THEN 3 WHEN 'C' THEN 2 ELSE 1 END), 0)::int AS total
+    FROM ratings WHERE title_id = tid AND tier IS NOT NULL
+  ) v
+  WHERE t.id = tid
+$$;
+
+CREATE OR REPLACE FUNCTION ratings_changed() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.title_id = OLD.title_id AND NEW.tier IS NOT DISTINCT FROM OLD.tier THEN
+    RETURN NULL;
+  END IF;
+  -- The title that lost the vote, then the one that got it (the same one for a tier change)
+  IF TG_OP <> 'INSERT' THEN PERFORM refresh_title_votes(OLD.title_id); END IF;
+  IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND NEW.title_id <> OLD.title_id) THEN
+    PERFORM refresh_title_votes(NEW.title_id);
+  END IF;
+  RETURN NULL;
+END
+$$;
+
+CREATE OR REPLACE TRIGGER ratings_votes AFTER INSERT OR UPDATE OR DELETE ON ratings
+  FOR EACH ROW EXECUTE FUNCTION ratings_changed();
+
 -- A "basket" is a set of titles one person likes: everything a Reddit user cited, or a site user's S/A titles.
 -- Grouping by Reddit author keeps a list pasted in many threads from counting many times.
 -- Baskets are per universe: liking Solo Leveling and Hades says nothing about manga readers' taste in games.
