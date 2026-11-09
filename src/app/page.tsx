@@ -36,7 +36,7 @@ export default function Landing() {
       <section className="hero">
         <h1>Find your next favorite</h1>
         <p className="muted">
-          Pick a few favorites, get recommendations from people with the same taste, and build tier lists worth
+          Pick what you loved, get recommendations from people with the same taste, and build tier lists worth
           sharing.
         </p>
       </section>
