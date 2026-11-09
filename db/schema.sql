@@ -131,3 +131,7 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS contact_messages_created ON contact_messages(created_at);
+-- Subjects offered by the form (src/lib/contact.ts); recreated so new ones can be added
+ALTER TABLE contact_messages DROP CONSTRAINT IF EXISTS contact_messages_subject_check;
+ALTER TABLE contact_messages ADD CONSTRAINT contact_messages_subject_check
+  CHECK (subject IN ('missing-title', 'suggestion', 'bug', 'other'));
