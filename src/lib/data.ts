@@ -301,10 +301,12 @@ export async function getRankedGenreCounts(universe: Universe): Promise<Map<stri
   cacheLife("hours");
   cacheTag(RATINGS_TAG);
 
+  // A join, not "id IN (…mentions) OR id IN (…ratings)": once the mention ids outgrow work_mem, Postgres can't hash
+  // that OR'ed subquery and rescans every mention for each title, which timed out in production
   const rows = await sql`
-    SELECT g, COUNT(*)::int AS n FROM titles t, jsonb_array_elements_text(t.genres) g
+    WITH ranked AS (SELECT title_id FROM mentions UNION SELECT title_id FROM ratings WHERE tier IS NOT NULL)
+    SELECT g, COUNT(*)::int AS n FROM titles t JOIN ranked r ON r.title_id = t.id, jsonb_array_elements_text(t.genres) g
     WHERE t.universe = ${universe}
-      AND (t.id IN (SELECT title_id FROM mentions) OR t.id IN (SELECT title_id FROM ratings WHERE tier IS NOT NULL))
     GROUP BY g
   `;
   return new Map(rows.map((r) => [String(r.g), Number(r.n)]));
