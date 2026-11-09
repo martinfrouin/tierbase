@@ -204,7 +204,11 @@ for (const file of readdirSync(join(ROOT, "data/cache/threads")).filter((f) => f
 
 // Single transaction so the site never sees a half-seeded Reddit dataset
 await sql.begin(async (tx) => {
-  await tx`TRUNCATE mentions, threads, reddit_baskets`;
+  // DELETE, not TRUNCATE: TRUNCATE locks the tables until commit, so every page (and the Vercel build) waited
+  // minutes for the seed. With DELETE, readers keep seeing the previous data until the new one is committed.
+  await tx`DELETE FROM reddit_baskets`;
+  await tx`DELETE FROM mentions`;
+  await tx`DELETE FROM threads`;
   if (mergedInto.size) {
     const from = [...mergedInto.keys()];
     const to = [...mergedInto.values()];
