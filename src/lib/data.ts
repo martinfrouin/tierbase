@@ -109,6 +109,18 @@ const RANKED_COLUMNS = sql`t.id, t.slug, t.name, t.kind, t.cover, t.universe, t.
 // Cited on Reddit or voted on (matches the titles_ranked_score index)
 const RANKED = sql`(t.mention_count > 0 OR t.votes > 0)`;
 
+// A kind (manhwa…) or a genre (Roguelite…), the same narrowing as the ranking chips
+export interface TitleFilter {
+  kind?: Kind;
+  genre?: string;
+}
+
+// SQL condition on a titles row, aliased t unless told otherwise
+function matches({ kind, genre }: TitleFilter, alias = sql`t`) {
+  return sql`(${kind ?? null}::text IS NULL OR ${alias}.kind = ${kind ?? null})
+    AND (${genre ?? null}::text IS NULL OR ${alias}.genres @> jsonb_build_array(${genre ?? null}::text))`;
+}
+
 export interface RankingFilter {
   universe?: Universe;
   kind?: Kind;
@@ -134,9 +146,7 @@ export async function getRankingPage({
     SELECT *, COUNT(*) OVER ()::int AS total FROM (
       SELECT ${RANKED_COLUMNS}, rank() OVER (ORDER BY t.score DESC)::int AS rank
       FROM titles t
-      WHERE ${RANKED} AND t.universe = ${universe}
-        AND (${kind ?? null}::text IS NULL OR t.kind = ${kind ?? null})
-        AND (${genre ?? null}::text IS NULL OR t.genres @> jsonb_build_array(${genre ?? null}::text))
+      WHERE ${RANKED} AND t.universe = ${universe} AND ${matches({ kind, genre })}
     ) ranked
     WHERE ${pattern}::text IS NULL OR name ILIKE ${pattern}
     ORDER BY score DESC, mention_count DESC, id
@@ -146,10 +156,15 @@ export async function getRankingPage({
 }
 
 // Best ranked titles of a universe, minus the ones a visitor already has
-export async function getTopTitles(universe: Universe, limit: number, exclude: number[] = []): Promise<RankedTitle[]> {
+export async function getTopTitles(
+  universe: Universe,
+  limit: number,
+  exclude: number[] = [],
+  only: TitleFilter = {},
+): Promise<RankedTitle[]> {
   const rows = await sql`
     SELECT ${RANKED_COLUMNS} FROM titles t
-    WHERE ${RANKED} AND t.universe = ${universe} AND t.id <> ALL(${exclude}::int[])
+    WHERE ${RANKED} AND t.universe = ${universe} AND t.id <> ALL(${exclude}::int[]) AND ${matches(only)}
     ORDER BY t.score DESC, t.mention_count DESC, t.id
     LIMIT ${limit}
   `;
@@ -244,7 +259,7 @@ async function basketSizes(): Promise<Map<number, number>> {
 export async function recommend(
   liked: { titleId: number; weight: number }[],
   exclude: Set<number>,
-  { limit = 20, skipBasket }: { limit?: number; skipBasket?: string } = {},
+  { limit = 20, skipBasket, only }: { limit?: number; skipBasket?: string; only?: TitleFilter } = {},
 ): Promise<Recommendation[]> {
   if (liked.length === 0) return [];
   const weights = new Map(liked.map((l) => [l.titleId, l.weight]));
@@ -253,6 +268,7 @@ export async function recommend(
   const rows = await sql`
     SELECT b1.title_id AS source, b2.title_id AS candidate, SUM(b1.w)::float AS together
     FROM weighted_baskets b1 JOIN baskets b2 ON b1.basket = b2.basket AND b2.title_id <> b1.title_id
+    ${only?.kind || only?.genre ? sql`JOIN titles c ON c.id = b2.title_id AND ${matches(only, sql`c`)}` : sql``}
     WHERE b1.title_id IN ${sql([...weights.keys()])} AND b1.basket <> ${skipBasket ?? ""}
     GROUP BY b1.title_id, b2.title_id
   `;
@@ -377,11 +393,12 @@ export async function personalRecommendations(
   userId: string,
   limit = 20,
   universe: Universe = "reading",
+  only: TitleFilter = {},
 ): Promise<Recommendation[]> {
   const library = await getLibrary(userId, universe);
   const liked = library
     .filter((e) => e.tier === "S" || e.tier === "A")
     .map((e) => ({ titleId: e.title.id, weight: TIER_WEIGHT[e.tier!] ?? 0 }));
   const exclude = new Set(library.map((e) => e.title.id));
-  return recommend(liked, exclude, { limit, skipBasket: userBasket(userId, universe) });
+  return recommend(liked, exclude, { limit, skipBasket: userBasket(userId, universe), only });
 }

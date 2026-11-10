@@ -14,7 +14,9 @@ import {
   userBasket,
   type LibraryEntry,
 } from "@/lib/data";
-import { filtersInUse, matchesFilter, parseListFilter, type ListFilter } from "@/lib/list-filters";
+import FilterMenu from "@/components/FilterMenu";
+import { filtersInUse, filtersLabel, filtersQuery, matchesFilters } from "@/lib/list-filters";
+import { parseFilters, type FilterParams, type TitleFilters } from "@/lib/title-filters";
 import { DOWNLOAD_LAYOUT, imageHeight, OG_LAYOUT, TierImage, WIDTH } from "@/lib/tier-image";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
@@ -22,12 +24,10 @@ import { TierBoardSkeleton } from "@/components/Skeletons";
 
 export const TIER_OG_SIZE = { width: 1200, height: 630 };
 
-type FilterParams = { kind?: string; genre?: string };
-
-// "A player's Roguelite tier list" when a games list is narrowed to one genre
-function listName(universe: Universe, filter: ListFilter | null = null) {
-  const genre = filter?.genre ? `${filter.label} ` : "";
-  return `A ${UNIVERSE_CONFIG[universe].person}'s ${genre}tier list`;
+// "A player's Roguelite tier list", "A reader's Romance manhwa tier list" when the list is narrowed
+function listName(universe: Universe, filters: TitleFilters = {}) {
+  const label = filtersLabel(filters);
+  return `A ${UNIVERSE_CONFIG[universe].person}'s ${label ? `${label} ` : ""}tier list`;
 }
 
 export async function sharedTierListMetadata(
@@ -36,7 +36,7 @@ export async function sharedTierListMetadata(
   searchParams: Promise<FilterParams>,
 ): Promise<Metadata> {
   const { shareId } = await params;
-  const name = listName(universe, parseListFilter(universe, await searchParams));
+  const name = listName(universe, parseFilters(universe, await searchParams));
   const description =
     universe === "games"
       ? "See how this player ranks their games, then make your own tier list."
@@ -93,8 +93,8 @@ async function SharedList({
   if (!owner) notFound();
   const config = UNIVERSE_CONFIG[universe];
   const list = (await getLibrary(owner.id, universe)).filter((e) => e.tier);
-  const filter = parseListFilter(universe, await searchParams);
-  const shown = list.filter((e) => matchesFilter(filter, e.title));
+  const filter = parseFilters(universe, await searchParams);
+  const shown = list.filter((e) => matchesFilters(filter, e.title));
   const options = filtersInUse(universe, list.map((e) => e.title));
   const liked = list.filter((e) => e.tier === "S" || e.tier === "A");
   const recs = (
@@ -104,7 +104,7 @@ async function SharedList({
       { limit: 40, skipBasket: userBasket(owner.id, universe) },
     )
   )
-    .filter((r) => matchesFilter(filter, r.title))
+    .filter((r) => matchesFilters(filter, r.title))
     .slice(0, 6);
   const listPath = `${universePath(universe, "/tierlist")}/${shareId}`;
 
@@ -120,20 +120,14 @@ async function SharedList({
         </Suspense>
       </section>
 
-      {options.length > 1 && (
-        <div className="chips board-filter">
-          <Link className={filter ? "chip" : "chip active"} href={listPath}>
-            All
-          </Link>
-          {options.map((f) => (
-            <Link
-              key={f.value}
-              className={filter?.value === f.value ? "chip active" : "chip"}
-              href={`${listPath}?${f.param}=${f.value}`}
-            >
-              {f.label}
-            </Link>
-          ))}
+      {(options.kinds.length > 1 || options.genres.length > 0) && (
+        <div className="filter-bar">
+          <FilterMenu
+            kinds={options.kinds.length > 1 ? options.kinds : []}
+            genres={options.genres}
+            active={filter}
+            href={(f) => listPath + filtersQuery(f)}
+          />
         </div>
       )}
 
@@ -208,9 +202,15 @@ export async function sharedTierListImage(universe: Universe, shareId: string, r
   const owner = await getUserByShareId(shareId);
   if (!owner) return new Response("Not found", { status: 404 });
   const query = new URL(request.url).searchParams;
-  const filter = parseListFilter(universe, { kind: query.get("kind"), genre: query.get("genre") });
-  const list = (await getLibrary(owner.id, universe)).filter((e) => e.tier && matchesFilter(filter, e.title));
-  const filename = filter ? `${filter.name}-tier-list` : universe === "games" ? "games-tier-list" : "tier-list";
+  const filter = parseFilters(universe, { kind: query.get("kind") ?? undefined, genre: query.get("genre") ?? undefined });
+  const list = (await getLibrary(owner.id, universe)).filter((e) => e.tier && matchesFilters(filter, e.title));
+  const label = filtersLabel(filter);
+  // "romance-manhwa-tier-list.png"
+  const filename = label
+    ? `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-tier-list`
+    : universe === "games"
+      ? "games-tier-list"
+      : "tier-list";
 
   return new ImageResponse(<TierImage list={list} layout={DOWNLOAD_LAYOUT} />, {
     width: WIDTH,

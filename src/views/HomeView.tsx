@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
 import FavoritesPicker from "@/components/FavoritesPicker";
+import FilterChips from "@/components/FilterChips";
 import RateButtons from "@/components/RateButtons";
 import TierListNudge from "@/components/TierListNudge";
 import {
@@ -15,6 +16,8 @@ import {
   type TitleCard,
 } from "@/lib/data";
 import { kindLabel } from "@/lib/kinds";
+import { filtersQuery } from "@/lib/list-filters";
+import { describeFilters, parseFilters, type FilterParams, type TitleFilters } from "@/lib/title-filters";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { currentUserId } from "@/lib/user";
 import { HomeSkeleton } from "@/components/Skeletons";
@@ -25,7 +28,31 @@ const RECOMMENDATIONS = 20;
 const UNRANKED = 8;
 const SUGGESTIONS = 36;
 
-function Onboarding({ universe, suggestions }: { universe: Universe; suggestions: RankedTitle[] }) {
+export type HomeParams = FilterParams;
+
+function Filters({ universe, active }: { universe: Universe; active: TitleFilters }) {
+  const base = universePath(universe);
+  return (
+    <div className="filter-bar">
+      <FilterChips universe={universe} active={active} href={(f) => base + filtersQuery(f)} />
+    </div>
+  );
+}
+
+// The SQL side of the filters: genre by its stored name
+function only({ kind, genre }: TitleFilters) {
+  return { kind, genre: genre?.name };
+}
+
+function Onboarding({
+  universe,
+  suggestions,
+  filter,
+}: {
+  universe: Universe;
+  suggestions: RankedTitle[];
+  filter: TitleFilters;
+}) {
   const config = UNIVERSE_CONFIG[universe];
   return (
     <>
@@ -50,6 +77,7 @@ function Onboarding({ universe, suggestions }: { universe: Universe; suggestions
           </li>
         </ol>
       </section>
+      <Filters universe={universe} active={filter} />
       <FavoritesPicker suggestions={suggestions} universe={universe} />
     </>
   );
@@ -71,16 +99,28 @@ function Because({ titles }: { titles: TitleCard[] }) {
   );
 }
 
-async function Dashboard({ universe, userId, library }: { universe: Universe; userId: string; library: LibraryEntry[] }) {
+async function Dashboard({
+  universe,
+  userId,
+  library,
+  filter,
+}: {
+  universe: Universe;
+  userId: string;
+  library: LibraryEntry[];
+  filter: TitleFilters;
+}) {
   const config = UNIVERSE_CONFIG[universe];
   const inLibrary = new Set(library.map((e) => e.title.id));
   const liked = library.filter((e) => e.tier === "S" || e.tier === "A");
   const [recs, unranked] = await Promise.all([
-    personalRecommendations(userId, RECOMMENDATIONS, universe),
-    getTopTitles(universe, UNRANKED, [...inLibrary]),
+    personalRecommendations(userId, RECOMMENDATIONS, universe, only(filter)),
+    getTopTitles(universe, UNRANKED, [...inLibrary], only(filter)),
   ]);
   const genres = await getGenres(unranked.map((t) => t.id));
   const noun = universe === "games" ? "games" : "titles";
+  // "roguelites", "romance manhwa": what the filtered lists are made of
+  const filtered = describeFilters(universe, filter, "titles");
 
   return (
     <>
@@ -88,6 +128,7 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
         <h1>Your next {config.nextPlural}</h1>
       </section>
       <TierListNudge ranked={library.filter((e) => e.tier).length} universe={universe} />
+      <Filters universe={universe} active={filter} />
 
       <h2>Recommended for you</h2>
       {liked.length === 0 ? (
@@ -96,7 +137,11 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
           <Link href={universePath(universe, "/tierlist")}>your tier list</Link>, to get recommendations.
         </p>
       ) : recs.length === 0 ? (
-        <p className="empty">Not enough {config.people} share your picks yet. Try adding a few more popular favorites.</p>
+        <p className="empty">
+          {filtered
+            ? `No ${filtered} to recommend from your picks yet. Try another filter, or love a few ${filtered}.`
+            : `Not enough ${config.people} share your picks yet. Try adding a few more popular favorites.`}
+        </p>
       ) : (
         <>
           <p className="muted">
@@ -128,7 +173,9 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
       {unranked.length > 0 && (
         <>
           <h2>Already {config.past} these?</h2>
-          <p className="muted">Popular {noun} not in your tier list yet. Rate them to sharpen your recommendations.</p>
+          <p className="muted">
+            Popular {filtered ?? noun} not in your tier list yet. Rate them to sharpen your recommendations.
+          </p>
           <ol className="rec-list">
             {unranked.map((t) => (
               <li key={t.id} className="rec compact">
@@ -160,20 +207,21 @@ async function Dashboard({ universe, userId, library }: { universe: Universe; us
   );
 }
 
-async function HomeContent({ universe }: { universe: Universe }) {
+async function HomeContent({ universe, searchParams }: { universe: Universe; searchParams: Promise<HomeParams> }) {
+  const filter = parseFilters(universe, await searchParams);
   const userId = await currentUserId();
   const library = userId ? await getLibrary(userId, universe) : [];
   if (userId && library.filter((e) => e.tier).length >= DASHBOARD_MIN_RANKED) {
-    return <Dashboard universe={universe} userId={userId} library={library} />;
+    return <Dashboard universe={universe} userId={userId} library={library} filter={filter} />;
   }
-  const suggestions = await getTopTitles(universe, SUGGESTIONS, library.map((e) => e.title.id));
-  return <Onboarding universe={universe} suggestions={suggestions} />;
+  const suggestions = await getTopTitles(universe, SUGGESTIONS, library.map((e) => e.title.id), only(filter));
+  return <Onboarding universe={universe} suggestions={suggestions} filter={filter} />;
 }
 
-export default function HomeView({ universe }: { universe: Universe }) {
+export default function HomeView({ universe, searchParams }: { universe: Universe; searchParams: Promise<HomeParams> }) {
   return (
     <Suspense fallback={<HomeSkeleton />}>
-      <HomeContent universe={universe} />
+      <HomeContent universe={universe} searchParams={searchParams} />
     </Suspense>
   );
 }

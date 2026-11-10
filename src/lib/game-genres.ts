@@ -1,18 +1,7 @@
-export interface GameGenre {
-  name: string;
-  slug: string;
-  // "Best roguelites"
-  plural: string;
-}
-
-const genre = (name: string, plural: string): GameGenre => ({
-  name,
-  slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-  plural,
-});
+import { genre, type Genre } from "@/lib/genre";
 
 // Same names and order as GAME_GENRE_RULES in scripts/lib/game-genres.ts (the worker image can't import src/)
-export const GAME_GENRES: GameGenre[] = [
+export const GAME_GENRES: Genre[] = [
   genre("Roguelite", "roguelites"),
   genre("Deckbuilder", "deckbuilders"),
   genre("Metroidvania", "metroidvanias"),
@@ -35,7 +24,3 @@ export const GAME_GENRES: GameGenre[] = [
   genre("Cozy", "cozy games"),
   genre("Indie", "indie games"),
 ];
-
-export function parseGenre(slug: string | null | undefined): GameGenre | null {
-  return GAME_GENRES.find((g) => g.slug === slug) ?? null;
-}

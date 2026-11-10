@@ -1,5 +1,5 @@
-import HomeView from "@/views/HomeView";
+import HomeView, { type HomeParams } from "@/views/HomeView";
 
-export default function Home() {
-  return <HomeView universe="reading" />;
+export default function Home({ searchParams }: { searchParams: Promise<HomeParams> }) {
+  return <HomeView universe="reading" searchParams={searchParams} />;
 }

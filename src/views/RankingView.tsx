@@ -2,32 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import Cover from "@/components/Cover";
-import { getRankedGenreCounts, getRankingPage, KINDS, scoreOutOf100, type Kind } from "@/lib/data";
-import { GAME_GENRES, parseGenre, type GameGenre } from "@/lib/game-genres";
-import { parseKind } from "@/lib/kinds";
+import FilterChips from "@/components/FilterChips";
+import { getRankingPage, scoreOutOf100 } from "@/lib/data";
+import { describeFilters, filterParams, parseFilters, type TitleFilters } from "@/lib/title-filters";
 import { titleHref, UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 import { RankingSkeleton } from "@/components/Skeletons";
 
 export type RankingParams = { kind?: string; genre?: string; q?: string; page?: string };
 
 const PAGE_SIZE = 50;
-// A genre filter needs enough games to make a ranking worth opening
-const MIN_GENRE_TITLES = 5;
-
-interface Filter {
-  kind?: Kind;
-  genre?: GameGenre;
-}
-
-function parseFilter(universe: Universe, params: RankingParams): Filter {
-  if (universe === "reading") return { kind: parseKind(params.kind) ?? undefined };
-  return { genre: parseGenre(params.genre) ?? undefined };
-}
 
 // "Best manhwa" and "Best roguelites" are the searches people make: each filter gets its own title and canonical URL
-function heading(universe: Universe, { kind, genre }: Filter) {
-  if (universe === "reading") return kind ? `Best ${kind}` : "Best manhwa, manga & manhua";
-  return genre ? `Best ${genre.plural}` : "Best games";
+function heading(universe: Universe, filters: TitleFilters) {
+  return `Best ${subject(universe, filters, "manhwa, manga & manhua")}`;
+}
+
+// "romance manhwa", "seinen manhwa, manga & manhua", "roguelites"
+function subject(universe: Universe, filters: TitleFilters, allReading: string) {
+  return describeFilters(universe, filters, allReading) ?? (universe === "games" ? "games" : allReading);
 }
 
 function href(universe: Universe, params: RankingParams) {
@@ -38,65 +30,22 @@ function href(universe: Universe, params: RankingParams) {
 }
 
 export async function rankingMetadata(universe: Universe, searchParams: Promise<RankingParams>): Promise<Metadata> {
-  const filter = parseFilter(universe, await searchParams);
+  const filters = parseFilters(universe, await searchParams);
   const config = UNIVERSE_CONFIG[universe];
-  const subject =
-    universe === "reading" ? (filter.kind ?? "manhwa, manga and manhua") : (filter.genre?.plural ?? "games");
   return {
-    title: heading(universe, filter),
-    description: `The ${subject} Reddit recommends most, refined by TierBase ${config.people}' tier lists. Scores out of 100.`,
-    alternates: {
-      canonical: href(universe, filter.kind ? { kind: filter.kind } : filter.genre ? { genre: filter.genre.slug } : {}),
-    },
+    title: heading(universe, filters),
+    description: `The ${subject(universe, filters, "manhwa, manga and manhua")} Reddit recommends most, refined by TierBase ${config.people}' tier lists. Scores out of 100.`,
+    alternates: { canonical: href(universe, filterParams(filters)) },
   };
 }
 
 async function Heading({ universe, searchParams }: { universe: Universe; searchParams: Promise<RankingParams> }) {
-  return <h1>{heading(universe, parseFilter(universe, await searchParams))}</h1>;
-}
-
-async function FilterChips({ universe, params, filter }: { universe: Universe; params: RankingParams; filter: Filter }) {
-  if (universe === "reading") {
-    return (
-      <div className="chips">
-        <Link className={filter.kind ? "chip" : "chip active"} href={href(universe, { q: params.q })}>
-          All
-        </Link>
-        {KINDS.map((k) => (
-          <Link
-            key={k.value}
-            className={filter.kind === k.value ? "chip active" : "chip"}
-            href={href(universe, { kind: k.value, q: params.q })}
-          >
-            {k.label}
-          </Link>
-        ))}
-      </div>
-    );
-  }
-  const counts = await getRankedGenreCounts(universe);
-  const genres = GAME_GENRES.filter((g) => (counts.get(g.name) ?? 0) >= MIN_GENRE_TITLES || g === filter.genre);
-  return (
-    <div className="chips">
-      <Link className={filter.genre ? "chip" : "chip active"} href={href(universe, { q: params.q })}>
-        All
-      </Link>
-      {genres.map((g) => (
-        <Link
-          key={g.slug}
-          className={filter.genre === g ? "chip active" : "chip"}
-          href={href(universe, { genre: g.slug, q: params.q })}
-        >
-          {g.name}
-        </Link>
-      ))}
-    </div>
-  );
+  return <h1>{heading(universe, parseFilters(universe, await searchParams))}</h1>;
 }
 
 async function RankingList({ universe, searchParams }: { universe: Universe; searchParams: Promise<RankingParams> }) {
   const params = await searchParams;
-  const filter = parseFilter(universe, params);
+  const filter = parseFilters(universe, params);
   const config = UNIVERSE_CONFIG[universe];
   const query = params.q?.trim().slice(0, 80) ?? "";
   const page = Math.max(1, Number(params.page) || 1);
@@ -118,7 +67,11 @@ async function RankingList({ universe, searchParams }: { universe: Universe; sea
           {filter.genre && <input type="hidden" name="genre" value={filter.genre.slug} />}
           <input className="search" type="search" name="q" placeholder="Search the ranking…" defaultValue={params.q} />
         </form>
-        <FilterChips universe={universe} params={params} filter={filter} />
+        <FilterChips
+          universe={universe}
+          active={filter}
+          href={(f) => href(universe, { ...filterParams(f), q: params.q })}
+        />
       </div>
 
       <div className="ranking-row ranking-head muted" aria-hidden>

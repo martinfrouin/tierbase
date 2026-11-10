@@ -5,7 +5,9 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { clearTiers, search, setEntry } from "@/app/actions";
 import type { TitleCard, Tier } from "@/lib/data";
-import { filtersInUse, matchesFilter, type ListFilter } from "@/lib/list-filters";
+import FilterMenu from "@/components/FilterMenu";
+import { filtersInUse, filtersLabel, filtersQuery, matchesFilters } from "@/lib/list-filters";
+import { filterParams, type TitleFilters } from "@/lib/title-filters";
 import { UNIVERSE_CONFIG, type Universe } from "@/lib/universes";
 
 const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
@@ -42,13 +44,16 @@ export default function TierBoard({
   const [pool, setPool] = useState(initialPool);
   const [selected, setSelected] = useState<TitleCard | null>(null);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<ListFilter | null>(null);
+  const [filter, setFilter] = useState<TitleFilters>({});
   const [confirmClear, setConfirmClear] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const latestQuery = useRef("");
 
-  const filterQuery = filter ? `?${filter.param}=${filter.value}` : "";
+  const filterQuery = filtersQuery(filter);
+  const filterLabel = filtersLabel(filter);
+  // Analytics: "all", "manhwa", "romance manhwa"
+  const filterName = filterLabel?.toLowerCase() ?? "all";
 
   const notify = (message: string) => {
     setToast(message);
@@ -79,8 +84,8 @@ export default function TierBoard({
     setWant((prev) => prev.filter((x) => !clearedIds.has(x.id)));
     setPool((prev) => [...cleared, ...prev]);
     try {
-      await clearTiers(filter?.value ?? null, universe);
-      track("Tier list cleared", { filter: filter?.value ?? "all", universe });
+      await clearTiers(filterParams(filter), universe);
+      track("Tier list cleared", { filter: filterName, universe });
     } catch {
       notify("Couldn't clear, try again");
     }
@@ -129,7 +134,7 @@ export default function TierBoard({
   const copy = async (text: string, message: string, event: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      track(event, { filter: filter?.value ?? "all", universe });
+      track(event, { filter: filterName, universe });
       notify(message);
     } catch {
       notify("Copy failed");
@@ -149,7 +154,7 @@ export default function TierBoard({
       link.download = response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "tier-list.png";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      track("Image downloaded", { filter: filter?.value ?? "all", universe });
+      track("Image downloaded", { filter: filterName, universe });
     } catch {
       notify("Couldn't generate the image");
     } finally {
@@ -157,11 +162,11 @@ export default function TierBoard({
     }
   };
 
-  const shown = (list: TitleCard[]) => list.filter((t) => matchesFilter(filter, t));
+  const shown = (list: TitleCard[]) => list.filter((t) => matchesFilters(filter, t));
   // Offered from what is ranked, so "Roguelite" only shows up once a roguelite is in the list
   const options = filtersInUse(universe, [...Object.values(tiers).flat(), ...want]);
   const hasPlaced = TIERS.some((t) => shown(tiers[t]).length);
-  const filteredShareUrl = shareUrl && filter ? `${shareUrl}${filterQuery}` : shareUrl;
+  const filteredShareUrl = shareUrl && `${shareUrl}${filterQuery}`;
 
   return (
     <>
@@ -195,26 +200,20 @@ export default function TierBoard({
               </span>
             ) : (
               <button className="button clear-button" onClick={() => setConfirmClear(true)}>
-                {filter ? `Clear ${filter.label} tiers` : "Clear tier list"}
+                {filterLabel ? `Clear ${filterLabel} tiers` : "Clear tier list"}
               </button>
             ))}
         </div>
       )}
 
-      {options.length > (universe === "reading" ? 1 : 0) && (
-        <div className="chips board-filter">
-          <button className={filter ? "chip" : "chip active"} onClick={() => setFilter(null)}>
-            All
-          </button>
-          {options.map((f) => (
-            <button
-              key={f.value}
-              className={filter?.value === f.value ? "chip active" : "chip"}
-              onClick={() => setFilter(filter?.value === f.value ? null : f)}
-            >
-              {f.label}
-            </button>
-          ))}
+      {(options.kinds.length > 1 || options.genres.length > 0) && (
+        <div className="filter-bar">
+          <FilterMenu
+            kinds={options.kinds.length > 1 ? options.kinds : []}
+            genres={options.genres}
+            active={filter}
+            onSelect={setFilter}
+          />
         </div>
       )}
 
