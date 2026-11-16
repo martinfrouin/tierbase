@@ -10,8 +10,11 @@ export type Tier = "S" | "A" | "B" | "C" | "D";
 export type LibraryState = "rated" | "want" | "skip";
 
 export const TIERS: Tier[] = ["S", "A", "B", "C", "D"];
-// Cache tag for everything derived from votes; Server Actions expire it after each vote
+// Cache tag for everything derived from votes. Only bulk changes (clearing tiers, restoring a backup) expire it:
+// expiring it on every vote threw away every cached title page, so crawlers re-rendered the whole site.
 export const RATINGS_TAG = "ratings";
+// A single vote only expires the page of the title it touched; rankings and similar titles catch up within hours
+export const titleTag = (titleId: number) => `title-${titleId}`;
 export const TIER_VALUE: Record<Tier, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 };
 
 // Scores are computed on the S..D scale (1-5) and shown out of 100
@@ -133,7 +136,21 @@ export interface RankingPage {
 }
 
 // One page of a ranking. Ranks are positions within the kind or genre filter; the name search keeps those ranks.
-export async function getRankingPage({
+export async function getRankingPage(
+  filter: RankingFilter & { query?: string; page?: number; pageSize?: number },
+): Promise<RankingPage> {
+  // Searches are too varied to be worth caching; the plain pages are what crawlers fetch over and over
+  return filter.query ? queryRankingPage(filter) : cachedRankingPage(filter);
+}
+
+async function cachedRankingPage(filter: RankingFilter & { page?: number; pageSize?: number }): Promise<RankingPage> {
+  "use cache: remote";
+  cacheLife("hours");
+  cacheTag(RATINGS_TAG);
+  return queryRankingPage(filter);
+}
+
+async function queryRankingPage({
   universe = "reading",
   kind,
   genre,
@@ -181,7 +198,7 @@ export async function getTopCovers(universe: Universe, limit: number): Promise<T
 
 export async function getTitle(slug: string, universe: Universe = "reading"): Promise<TitleDetail | null> {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag(RATINGS_TAG);
 
   // Rank: how many titles of the universe score higher, plus one (titles with no mention and no vote are unranked)
@@ -193,6 +210,7 @@ export async function getTitle(slug: string, universe: Universe = "reading"): Pr
     FROM titles t WHERE t.slug = ${slug} AND t.universe = ${universe}
   `;
   if (!row) return null;
+  cacheTag(titleTag(Number(row.id)));
   const tierRows = await sql`
     SELECT tier, COUNT(*)::int AS n FROM ratings WHERE title_id = ${row.id} AND tier IS NOT NULL GROUP BY tier
   `;
@@ -247,7 +265,7 @@ export async function searchTitles(query: string, limit = 24, universes: Univers
 
 async function basketSizes(): Promise<Map<number, number>> {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag(RATINGS_TAG);
 
   const rows = await sql`SELECT title_id, COUNT(*)::int AS n FROM baskets GROUP BY title_id`;
@@ -315,7 +333,7 @@ export async function recommend(
 
 export async function similarTitles(titleId: number, limit = 12): Promise<Recommendation[]> {
   "use cache: remote";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag(RATINGS_TAG);
   return recommend([{ titleId, weight: 1 }], new Set(), { limit });
 }

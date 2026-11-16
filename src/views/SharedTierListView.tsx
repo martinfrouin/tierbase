@@ -194,7 +194,11 @@ export default function SharedTierListView({
 export async function sharedTierListOgImage(universe: Universe, shareId: string) {
   const owner = await getUserByShareId(shareId);
   const list = owner ? (await getLibrary(owner.id, universe)).filter((e) => e.tier) : [];
-  return new ImageResponse(<TierImage name={listName(universe)} list={list} layout={OG_LAYOUT} />, TIER_OG_SIZE);
+  // Lists change, but an hour-old link preview is fine and spares a re-render per crawler fetch
+  return new ImageResponse(<TierImage name={listName(universe)} list={list} layout={OG_LAYOUT} />, {
+    ...TIER_OG_SIZE,
+    headers: { "CDN-Cache-Control": "public, max-age=3600" },
+  });
 }
 
 // Full tier list as a PNG to post on Discord, X or TikTok: every cover, with the site's address at the bottom

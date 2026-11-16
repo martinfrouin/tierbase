@@ -6,7 +6,7 @@ import { sql } from "@/lib/db";
 import { applyRestore, createBackup, findRestore } from "@/lib/backups";
 import { ensureUserId } from "@/lib/user";
 import { parseFilters, type FilterParams } from "@/lib/title-filters";
-import { RATINGS_TAG, searchTitles, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
+import { RATINGS_TAG, searchTitles, titleTag, TIERS, type LibraryState, type TitleCard, type Tier } from "@/lib/data";
 import { UNIVERSES, type Universe } from "@/lib/universes";
 
 // Home pages and tier lists of both universes show the visitor's own ratings
@@ -30,7 +30,7 @@ export async function setEntry(
       ON CONFLICT (user_id, title_id) DO UPDATE SET tier = excluded.tier, state = excluded.state, updated_at = now()
     `;
   }
-  updateTag(RATINGS_TAG);
+  updateTag(titleTag(titleId));
   revalidateLists();
   // Pages the visitor already opened (an empty tier list) would otherwise come back from the client cache
   refresh();
@@ -44,8 +44,8 @@ export async function saveFavorites(titleIds: number[]) {
       INSERT INTO ratings (user_id, title_id, tier, state) VALUES (${userId}, ${id}, 'S', 'rated')
       ON CONFLICT (user_id, title_id) DO UPDATE SET tier = 'S', state = 'rated', updated_at = now() WHERE ratings.tier IS NULL
     `;
+    updateTag(titleTag(id));
   }
-  updateTag(RATINGS_TAG);
   revalidateLists();
   refresh();
 }

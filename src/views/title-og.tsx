@@ -52,6 +52,12 @@ export async function titleOgImage(universe: Universe, slug: string) {
         </div>
       </div>
     ),
-    TITLE_OG_SIZE,
+    {
+      ...TITLE_OG_SIZE,
+      // ~1 MB each and rebuilt from six remote covers: without this, every crawler fetch re-rendered it. A week-old
+      // "also loved" row is fine for a link preview.
+      // Next.js rewrites Cache-Control on dynamic routes, so the CDN gets its own header (Vercel and Cloudflare read it).
+      headers: { "CDN-Cache-Control": "public, max-age=604800, stale-while-revalidate=86400" },
+    },
   );
 }
