@@ -732,6 +732,14 @@ a.chip {
   border-color: var(--accent);
 }
 
+.pool.skip {
+  min-height: 56px;
+}
+
+.pool.skip .card {
+  opacity: 0.6;
+}
+
 .pool:has(> .pool-empty) {
   align-items: center;
   align-content: center;

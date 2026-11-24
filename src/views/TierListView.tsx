@@ -22,6 +22,7 @@ async function MyBoard({ universe }: { universe: Universe }) {
   const inLibrary = new Set(library.map((e) => e.title.id));
 
   const wanted = library.filter((e) => e.state === "want").map((e) => e.title);
+  const skipped = library.filter((e) => e.state === "skip").map((e) => e.title);
   const popular = await getTopTitles(universe, POOL_SIZE, [...inLibrary]);
 
   const share = userId ? await getShareInfo(userId) : null;
@@ -38,6 +39,7 @@ async function MyBoard({ universe }: { universe: Universe }) {
         key={library.map((e) => `${e.title.id}:${e.tier ?? e.state}`).join(",")}
         placed={placed}
         wantToRead={wanted}
+        notForMe={skipped}
         pool={popular}
         editable
         shareUrl={shareUrl}

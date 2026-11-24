@@ -15,11 +15,13 @@ const POOL = "pool";
 // Suggestions shown at once in "Add more titles", out of a deeper pool so filters keep enough
 const POOL_SHOWN = 60;
 const WANT = "want";
-type Slot = Tier | typeof POOL | typeof WANT;
+const SKIP = "skip";
+type Slot = Tier | typeof POOL | typeof WANT | typeof SKIP;
 
 interface Props {
   placed: { title: TitleCard; tier: Tier }[];
   wantToRead?: TitleCard[];
+  notForMe?: TitleCard[];
   pool: TitleCard[];
   editable: boolean;
   shareUrl?: string;
@@ -29,6 +31,7 @@ interface Props {
 export default function TierBoard({
   placed,
   wantToRead = [],
+  notForMe = [],
   pool: initialPool,
   editable,
   shareUrl,
@@ -41,6 +44,7 @@ export default function TierBoard({
     return byTier;
   });
   const [want, setWant] = useState(wantToRead);
+  const [skip, setSkip] = useState(notForMe);
   const [pool, setPool] = useState(initialPool);
   const [selected, setSelected] = useState<TitleCard | null>(null);
   const [query, setQuery] = useState("");
@@ -60,19 +64,21 @@ export default function TierBoard({
     setTimeout(() => setToast(null), 2000);
   };
 
-  const find = (id: number) => [...Object.values(tiers).flat(), ...want, ...pool].find((t) => t.id === id);
+  const find = (id: number) => [...Object.values(tiers).flat(), ...want, ...skip, ...pool].find((t) => t.id === id);
 
   const move = (title: TitleCard, target: Slot) => {
     setTiers((prev) => {
       const next = Object.fromEntries(TIERS.map((t) => [t, prev[t].filter((x) => x.id !== title.id)])) as Record<Tier, TitleCard[]>;
-      if (target !== POOL && target !== WANT) next[target].push(title);
+      if (target !== POOL && target !== WANT && target !== SKIP) next[target].push(title);
       return next;
     });
     const withoutTitle = (list: TitleCard[]) => list.filter((x) => x.id !== title.id);
     setWant((prev) => (target === WANT ? [title, ...withoutTitle(prev)] : withoutTitle(prev)));
+    setSkip((prev) => (target === SKIP ? [title, ...withoutTitle(prev)] : withoutTitle(prev)));
     setPool((prev) => (target === POOL ? [title, ...withoutTitle(prev)] : withoutTitle(prev)));
     setSelected(null);
-    const entry = target === POOL ? null : target === WANT ? { state: "want" as const } : { tier: target };
+    const entry =
+      target === POOL ? null : target === WANT || target === SKIP ? { state: target } : { tier: target };
     setEntry(title.id, entry).catch(() => notify("Couldn't save, try again"));
   };
 
@@ -127,7 +133,7 @@ export default function TierBoard({
     if (value.trim().length < 2) return;
     const found = await search(value, [universe]);
     if (latestQuery.current !== value) return;
-    const placedIds = new Set([...Object.values(tiers).flat(), ...want].map((t) => t.id));
+    const placedIds = new Set([...Object.values(tiers).flat(), ...want, ...skip].map((t) => t.id));
     setPool((prev) => [...found.filter((t) => !placedIds.has(t.id)), ...prev.filter((p) => !found.some((f) => f.id === p.id))]);
   };
 
@@ -245,6 +251,19 @@ export default function TierBoard({
                 </span>
               ) : (
                 shown(want).map(card)
+              )}
+            </div>
+          </section>
+
+          <section className="pool-section">
+            <h2>
+              Not for me <span className="muted">({shown(skip).length})</span>
+            </h2>
+            <div className={selected ? "pool skip target" : "pool skip"} {...dropProps(SKIP)}>
+              {skip.length === 0 ? (
+                <span className="muted pool-empty">Titles you mark &quot;Not for me&quot; land here.</span>
+              ) : (
+                shown(skip).map(card)
               )}
             </div>
           </section>
