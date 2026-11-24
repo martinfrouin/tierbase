@@ -133,7 +133,7 @@ async function Dashboard({
       <h2>Recommended for you</h2>
       {liked.length === 0 ? (
         <p className="empty">
-          Mark a few {noun} as Loved or Liked below, or in{" "}
+          Rank a few {noun} in S or A below, or in{" "}
           <Link href={universePath(universe, "/tierlist")}>your tier list</Link>, to get recommendations.
         </p>
       ) : recs.length === 0 ? (

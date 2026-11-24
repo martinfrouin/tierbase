@@ -7,21 +7,19 @@ import { setEntry } from "@/app/actions";
 import type { LibraryState, Tier } from "@/lib/data";
 import { UNIVERSE_CONFIG, universePath, type Universe } from "@/lib/universes";
 
-type Choice = {
-  emoji: string;
-  // Missing for "want", labelled per universe: "Want to read" / "Want to play"
-  label?: string;
-  entry: { tier: Tier } | { state: Exclude<LibraryState, "rated"> };
-};
+type Choice =
+  | { tier: Tier }
+  // Missing label for "want", labelled per universe: "Want to read" / "Want to play"
+  | { emoji: string; label?: string; state: Exclude<LibraryState, "rated"> };
 
 const CHOICES: Choice[] = [
-  { emoji: "⭐", label: "Loved", entry: { tier: "S" } },
-  { emoji: "❤️", label: "Liked", entry: { tier: "A" } },
-  { emoji: "👍", label: "Good", entry: { tier: "B" } },
-  { emoji: "😐", label: "Okay", entry: { tier: "C" } },
-  { emoji: "👎", label: "Disliked", entry: { tier: "D" } },
-  { emoji: "🧐", entry: { state: "want" } },
-  { emoji: "🚫", label: "Not for me", entry: { state: "skip" } },
+  { tier: "S" },
+  { tier: "A" },
+  { tier: "B" },
+  { tier: "C" },
+  { tier: "D" },
+  { emoji: "🧐", state: "want" },
+  { emoji: "🚫", label: "Not for me", state: "skip" },
 ];
 
 interface Props {
@@ -35,12 +33,15 @@ export default function RateButtons({ titleId, current, universe = "reading" }: 
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const isCurrent = ({ entry }: Choice) =>
-    !!current && ("tier" in entry ? current.tier === entry.tier : current.state === entry.state);
+  const isCurrent = (choice: Choice) =>
+    !!current && ("tier" in choice ? current.tier === choice.tier : current.state === choice.state);
 
   const choose = (choice: Choice) =>
     startTransition(async () => {
-      await setEntry(titleId, isCurrent(choice) ? null : choice.entry);
+      await setEntry(
+        titleId,
+        isCurrent(choice) ? null : "tier" in choice ? { tier: choice.tier } : { state: choice.state },
+      );
       router.refresh();
     });
 
@@ -49,12 +50,20 @@ export default function RateButtons({ titleId, current, universe = "reading" }: 
       <div className={pending ? "rate-buttons pending" : "rate-buttons"}>
         {CHOICES.map((choice) => (
           <button
-            key={choice.emoji}
+            key={"tier" in choice ? choice.tier : choice.state}
             className={isCurrent(choice) ? "chip active" : "chip"}
             disabled={pending}
             onClick={() => choose(choice)}
           >
-            <span aria-hidden>{choice.emoji}</span> {choice.label ?? config.want}
+            {"tier" in choice ? (
+              <span className="tier-badge" style={{ background: `var(--tier-${choice.tier.toLowerCase()})` }}>
+                {choice.tier}
+              </span>
+            ) : (
+              <>
+                <span aria-hidden>{choice.emoji}</span> {choice.label ?? config.want}
+              </>
+            )}
           </button>
         ))}
       </div>
